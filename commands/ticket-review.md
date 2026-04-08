@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX — generate a human verification checklist
-argument-hint: TKT-XXX
+description: 'TKT-XXX — generate a human verification checklist'
+argument-hint: 'TKT-XXX'
 ---
 
 # Review a Ticket

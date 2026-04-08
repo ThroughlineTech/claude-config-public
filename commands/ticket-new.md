@@ -1,6 +1,6 @@
 ---
 description: '"short description" — create a new ticket'
-argument-hint: "short description"
+argument-hint: 'short description'
 ---
 
 # Create a New Ticket

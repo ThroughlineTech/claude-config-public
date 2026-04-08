@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX {phase} [target-phase] — delegate a phase to another agent
-argument-hint: TKT-XXX {phase} [target-phase]
+description: 'TKT-XXX {phase} [target-phase] — delegate a phase to another agent'
+argument-hint: 'TKT-XXX {phase} [target-phase]'
 ---
 
 # Delegate a Ticket Phase to Another Agent

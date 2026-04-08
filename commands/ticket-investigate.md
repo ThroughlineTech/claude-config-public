@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX — investigate a ticket and write an implementation plan
-argument-hint: TKT-XXX
+description: 'TKT-XXX — investigate a ticket and write an implementation plan'
+argument-hint: 'TKT-XXX'
 ---
 
 # Investigate a Ticket

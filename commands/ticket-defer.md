@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX {reason...} — park a ticket in deferred/ with a reason
-argument-hint: TKT-XXX {reason...}
+description: 'TKT-XXX {reason...} — park a ticket in deferred/ with a reason'
+argument-hint: 'TKT-XXX {reason...}'
 ---
 
 # Defer a Ticket

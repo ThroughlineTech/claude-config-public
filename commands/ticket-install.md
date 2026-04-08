@@ -1,5 +1,5 @@
 ---
-description: install or update the ticket workflow in this project
+description: 'install or update the ticket workflow in this project'
 ---
 
 # Install the Ticket Workflow Into This Project

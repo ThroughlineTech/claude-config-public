@@ -1,6 +1,6 @@
 ---
-description: [TKT-XXX] — show ticket lifecycle timeline (no arg = active set)
-argument-hint: [TKT-XXX]
+description: '[TKT-XXX] — show ticket lifecycle timeline (no arg = active set)'
+argument-hint: '[TKT-XXX]'
 ---
 
 # Show a Ticket's Lifecycle Timeline

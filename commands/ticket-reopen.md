@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX [reason...] — bring a terminal ticket back to active
-argument-hint: TKT-XXX [reason...]
+description: 'TKT-XXX [reason...] — bring a terminal ticket back to active'
+argument-hint: 'TKT-XXX [reason...]'
 ---
 
 # Reopen a Ticket

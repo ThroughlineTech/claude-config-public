@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX — collect work from a delegated phase
-argument-hint: TKT-XXX
+description: 'TKT-XXX — collect work from a delegated phase'
+argument-hint: 'TKT-XXX'
 ---
 
 # Collect Work From a Delegated Phase

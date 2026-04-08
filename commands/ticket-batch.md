@@ -1,6 +1,6 @@
 ---
-description: [TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview] — run multiple tickets in parallel worktrees
-argument-hint: [TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]
+description: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview] — run multiple tickets in parallel worktrees'
+argument-hint: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]'
 ---
 
 # Batch a Set of Tickets

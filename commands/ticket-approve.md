@@ -1,6 +1,6 @@
 ---
-description: TKT-XXX — approve and implement an investigated ticket
-argument-hint: TKT-XXX
+description: 'TKT-XXX — approve and implement an investigated ticket'
+argument-hint: 'TKT-XXX'
 ---
 
 # Approve and Implement a Ticket
