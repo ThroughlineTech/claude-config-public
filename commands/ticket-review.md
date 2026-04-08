@@ -1,5 +1,5 @@
 ---
-description: Generate a verification checklist
+description: TKT-XXX — generate a human verification checklist
 argument-hint: TKT-XXX
 ---
 

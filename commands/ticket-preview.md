@@ -1,5 +1,5 @@
 ---
-description: Launch a ticket preview
+description: TKT-XXX — launch a ticket preview without shipping
 argument-hint: TKT-XXX
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Run multiple tickets in parallel worktrees
+description: [TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview] — run multiple tickets in parallel worktrees
 argument-hint: [TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: List tickets
+description: [--all] — list active tickets (--all includes shipped/deferred/wontfix)
 argument-hint: [--all]
 ---
 

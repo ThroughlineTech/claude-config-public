@@ -1,5 +1,5 @@
 ---
-description: Investigate a ticket
+description: TKT-XXX — investigate a ticket and write an implementation plan
 argument-hint: TKT-XXX
 ---
 

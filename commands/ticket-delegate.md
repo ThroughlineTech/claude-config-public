@@ -1,5 +1,5 @@
 ---
-description: Delegate a ticket phase to another agent
+description: TKT-XXX {phase} [target-phase] — delegate a phase to another agent
 argument-hint: TKT-XXX {phase} [target-phase]
 ---
 

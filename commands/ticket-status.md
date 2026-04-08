@@ -1,5 +1,5 @@
 ---
-description: Show ticket lifecycle timeline
+description: [TKT-XXX] — show ticket lifecycle timeline (no arg = active set)
 argument-hint: [TKT-XXX]
 ---
 

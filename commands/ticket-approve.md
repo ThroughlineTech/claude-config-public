@@ -1,5 +1,5 @@
 ---
-description: Approve and implement a ticket
+description: TKT-XXX — approve and implement an investigated ticket
 argument-hint: TKT-XXX
 ---
 

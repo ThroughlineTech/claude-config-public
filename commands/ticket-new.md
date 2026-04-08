@@ -1,5 +1,5 @@
 ---
-description: Create a new ticket
+description: "description" — create a new ticket
 argument-hint: "short description"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Collect work from a delegated phase
+description: TKT-XXX — collect work from a delegated phase
 argument-hint: TKT-XXX
 ---
 

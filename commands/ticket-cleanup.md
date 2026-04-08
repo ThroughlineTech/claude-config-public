@@ -1,5 +1,5 @@
 ---
-description: Reap stale worktrees and previews
+description: [TKT-XXX | --all] — reap stale worktrees and preview processes
 argument-hint: [TKT-XXX | --all]
 ---
 

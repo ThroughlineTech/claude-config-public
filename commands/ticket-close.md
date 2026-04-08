@@ -1,5 +1,5 @@
 ---
-description: Close a ticket as wontfix
+description: TKT-XXX {reason...} — close a ticket as wontfix
 argument-hint: TKT-XXX {reason...}
 ---
 

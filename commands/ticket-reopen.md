@@ -1,5 +1,5 @@
 ---
-description: Bring a terminal ticket back to active
+description: TKT-XXX [reason...] — bring a terminal ticket back to active
 argument-hint: TKT-XXX [reason...]
 ---
 
