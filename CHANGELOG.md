@@ -2,6 +2,13 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1-public] — 2026-04-08
+
+### Added
+
+- **Command frontmatter** — every `/ticket-*` command has `description` and `argument-hint` fields so the slash-command picker shows what the command does and the expected arguments inline, instead of just the bare name.
+- **Short aliases** — `commands/aliases.map` defines single-letter/short aliases (`/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`). `install.sh` reads the map and creates gitignored symlinks in `commands/` on each machine, so aliases propagate with a `git pull + bash install.sh` and don't pollute the repo. Stale aliases removed from the map are reaped on the next install.
+
 ## [0.2.0-public] — 2026-04-08
 
 Major expansion of the ticket workflow: terminal-state management, preview-before-ship, and parallel batch mode. Existing projects can upgrade via `/ticket-install` in update mode — it migrates the config format and backfills the new `app:` field into existing tickets.

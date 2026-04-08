@@ -54,8 +54,10 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-defer TKT-001 {reason}` | Park a ticket in `tickets/deferred/` with a reason (any language, translated to English) |
 | `/ticket-close TKT-001 {reason}` | Close as wontfix (duplicate, invalid, obsolete) → `tickets/wontfix/` |
 | `/ticket-reopen TKT-001` | Bring a terminal ticket back to active (regression, deferred work returns, etc.) |
-| `/ticket-cleanup [ID|--all]` | Reap stale worktrees + preview processes; also runs ambiently as preflight |
+| `/ticket-cleanup [ID\|--all]` | Reap stale worktrees + preview processes; also runs ambiently as preflight |
 | `/ticket-status TKT-001` | "What happened to this ticket? What's the next step?" |
+
+**Short aliases** are available for every command — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. Defined in [commands/aliases.map](commands/aliases.map); install.sh creates per-machine symlinks from the map.
 
 See **[docs/02-ticket-workflow.md](docs/02-ticket-workflow.md)** for the full lifecycle and examples, or **[docs/05-commands-reference.md](docs/05-commands-reference.md)** for a terse one-section-per-command reference.
 
