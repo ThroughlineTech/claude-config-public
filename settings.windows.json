@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(taskkill:*)",
+      "Bash(where:*)",
+      "Bash(wsl:*)",
+      "Read(/c/Users/**)",
+      "Read(/c/src/**)"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Bash(xcodegen:*)",
+      "Bash(xcrun:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(xcrun devicectl:*)",
+      "Bash(xcrun xctrace:*)",
+      "Bash(devicectl:*)",
+      "Bash(instruments:*)",
+      "Bash(plutil:*)",
+      "Bash(open:*)",
+      "Bash(swift:*)",
+      "Bash(brew:*)",
+      "Bash(system_profiler:*)",
+      "Read(/Applications/**)",
+      "Read(/Volumes/**)"
+    ]
+  }
+}

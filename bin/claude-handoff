@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Hand off a plan from one machine to another via the claude-config repo.
+# Usage: claude-handoff [plan-filename]
+#   - with no arg: picks the most recently modified plan in ~/.claude/plans/
+#   - with arg: picks ~/.claude/plans/{filename}
+# Copies the plan to plans/_next.md, commits both, pushes if a remote exists.
+
+set -euo pipefail
+
+PLANS_DIR="$HOME/.claude/plans"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [ -n "${1:-}" ]; then
+  PLAN_NAME="$1"
+  PLAN="$PLANS_DIR/$PLAN_NAME"
+else
+  PLAN=$(ls -t "$PLANS_DIR"/*.md 2>/dev/null | grep -v '_next\.md$' | head -1 || true)
+  [ -n "$PLAN" ] || { echo "No plans found in $PLANS_DIR"; exit 1; }
+  PLAN_NAME=$(basename "$PLAN")
+fi
+
+[ -f "$PLAN" ] || { echo "No plan at $PLAN"; exit 1; }
+
+cp "$PLAN" "$PLANS_DIR/_next.md"
+echo "→ copied $PLAN_NAME to _next.md"
+
+cd "$REPO_DIR"
+git add "plans/_next.md" "plans/$PLAN_NAME" 2>/dev/null || true
+
+if git diff --cached --quiet; then
+  echo "(nothing new to commit — _next.md and $PLAN_NAME are already committed)"
+else
+  git commit -m "handoff: ${PLAN_NAME%.md}" >/dev/null
+  echo "→ committed"
+fi
+
+if git remote get-url origin >/dev/null 2>&1; then
+  git push >/dev/null 2>&1 && echo "→ pushed to origin" || { echo "✗ push failed"; exit 1; }
+  echo ""
+  echo "Handed off: $PLAN_NAME"
+  echo "On the other machine:"
+  echo "  git -C $REPO_DIR pull"
+  echo "  Then in Claude Code: 'execute the plan in ~/.claude/plans/_next.md'"
+else
+  echo ""
+  echo "Handed off locally: $PLAN_NAME (no git remote configured)"
+  echo "Set one up with: gh repo create claude-config --private --source=. --remote=origin"
+fi

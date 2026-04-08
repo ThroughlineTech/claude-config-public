@@ -1,0 +1,201 @@
+# Commands Reference
+
+Terse one-section-per-command reference. For the lifecycle and examples, see [02-ticket-workflow.md](02-ticket-workflow.md). For delegation flow, see [03-delegation.md](03-delegation.md).
+
+All commands live in `commands/` in the repo and are symlinked into `~/.claude/commands/` by `install.sh`. They're Claude Code user-level slash commands, available in every project on every machine.
+
+## `/ticket-install`
+
+**Purpose**: Bootstrap a project (new or existing) to use the universal ticket workflow.
+
+**Usage**: Run once in any project, from a Claude Code session.
+
+**What it does**:
+- Detects the stack by looking for marker files (package.json, Cargo.toml, *.xcodeproj, go.mod, pyproject.toml, etc.)
+- Proposes test/build/deploy commands for the detected stack
+- Asks you to confirm via AskUserQuestion
+- Creates `tickets/TEMPLATE.md` with the standard frontmatter and sections
+- Creates `.claude/ticket-config.md` with stack info, commands, and key source paths
+- Appends a `## Tickets` section to the project's `CLAUDE.md` (creates the file if missing)
+
+**Preconditions**: None. Can be run on an empty or populated project.
+
+**Side effects**: Creates files in the current project. Does not touch git.
+
+## `/ticket-new "title"`
+
+**Purpose**: Create a new ticket.
+
+**Usage**: `/ticket-new "short description"` in any bootstrapped project.
+
+**What it does**:
+- Reads `.claude/ticket-config.md` for the tickets dir and ID prefix
+- Finds the next available ticket ID
+- Copies `tickets/TEMPLATE.md` to `tickets/TKT-NNN.md`
+- Fills in title, type (bug/feature/enhancement), priority, description, acceptance criteria — either from the argument or by asking you
+- Sets status to `open`, created/updated to today
+
+**Preconditions**: Project must be bootstrapped (`/ticket-install` has been run).
+
+**Side effects**: Creates one file in `tickets/`. Does not touch git.
+
+## `/ticket-list`
+
+**Purpose**: Show all tickets grouped by status.
+
+**Usage**: `/ticket-list`
+
+**What it does**: Reads all `TKT-*.md` files in the configured tickets dir, parses frontmatter, groups by status, shows a table per status with ID/title/type/priority/branch.
+
+**Preconditions**: Tickets dir exists (or returns "no tickets yet").
+
+**Side effects**: None — read-only.
+
+## `/ticket-investigate TKT-NNN`
+
+**Purpose**: Explore the codebase and write a plan for a ticket.
+
+**Usage**: `/ticket-investigate TKT-005`
+
+**What it does**:
+- Verifies ticket status is `open`
+- Reads `CLAUDE.md` and `.claude/ticket-config.md` for project context
+- Reads the context docs listed in `ticket-config.md`
+- Explores the codebase starting from the key source locations
+- Writes into the ticket: Investigation section (findings), Proposed Solution section (approach), Implementation Plan section (concrete checklist)
+- Transitions status to `proposed`
+
+**Preconditions**: Ticket exists, status is `open`, project is bootstrapped.
+
+**Side effects**: Modifies the ticket file. Reads files in the codebase (read-only on source code).
+
+## `/ticket-approve TKT-NNN`
+
+**Purpose**: Create a feature branch and implement the plan.
+
+**Usage**: `/ticket-approve TKT-005`
+
+**What it does**:
+- Verifies status is `proposed` and Implementation Plan is filled in
+- Verifies working tree is clean
+- Creates branch `ticket/{tkt-nnn}-{slug}` from main
+- Updates ticket: branch field, status `in-progress`
+- Works through the Implementation Plan item by item
+- Adds tests per project conventions
+- Runs test and build commands from `.claude/ticket-config.md`
+- Commits with message `TKT-NNN: {title}`
+- Updates ticket: Files Changed, Test Report sections, status `review`
+
+**Preconditions**: Ticket status is `proposed`, Implementation Plan is present, working tree clean.
+
+**Side effects**: Creates a git branch, edits source files, creates commits. Does not push.
+
+## `/ticket-delegate TKT-NNN {phase} [target-phase]`
+
+**Purpose**: Hand a ticket phase to a different agent via a brief file.
+
+**Usage**:
+- `/ticket-delegate TKT-005 investigate`
+- `/ticket-delegate TKT-005 implement`
+- `/ticket-delegate TKT-005 review`
+- `/ticket-delegate TKT-005 verify investigate`
+- `/ticket-delegate TKT-005 verify implement`
+- `/ticket-delegate TKT-005 verify review`
+
+**What it does**:
+- Verifies the ticket is in the right status for the requested phase
+- Reads the appropriate template from `~/.claude/brief-templates/{phase}.md`
+- Fills in placeholders (ticket content, project rules from CLAUDE.md, test/build commands, relevant files)
+- Writes the brief to `tickets/TKT-NNN.{phase-tag}.brief.md`
+- For `implement`: also creates the feature branch
+- Transitions status to `delegated`, appends to Delegation Log section
+
+**Preconditions**: Phase-specific status requirement (see the command file for the matrix).
+
+**Side effects**: Creates/overwrites a brief file. For `implement` phase, creates a git branch. Updates the ticket file.
+
+## `/ticket-collect TKT-NNN`
+
+**Purpose**: Collect work returned from a delegated phase.
+
+**Usage**: `/ticket-collect TKT-005` (after the executing agent has reported "Brief executed").
+
+**What it does**:
+- Verifies ticket status is `delegated`
+- Reads the most recent Delegation Log entry to determine which phase was delegated
+- Verifies the expected sections of the ticket are now filled in by the executing agent
+- For `implement`: reads the git diff on the feature branch, fills in Files Changed and Test Report
+- For `verify`: summarizes the Peer Review section and suggests next action
+- Transitions status to the appropriate next state
+
+**Preconditions**: Ticket status is `delegated`.
+
+**Side effects**: Updates the ticket file. Does not modify any source code.
+
+## `/ticket-status TKT-NNN`
+
+**Purpose**: Show the lifecycle timeline of a ticket (or the active set with no arg).
+
+**Usage**:
+- `/ticket-status TKT-005` — full timeline for one ticket
+- `/ticket-status` — one-line summary of every non-shipped, non-closed ticket
+
+**What it does**: Reads the ticket's frontmatter, body sections, and Delegation Log; reconstructs the phases that have been done, attributes them to agents where possible, prints a timeline with timestamps and a "Next action" line.
+
+**Preconditions**: Ticket exists (or any tickets exist for the no-arg version).
+
+**Side effects**: None — read-only.
+
+## `/ticket-review TKT-NNN`
+
+**Purpose**: Generate a human-verifiable checklist for a completed implementation.
+
+**Usage**: `/ticket-review TKT-005`
+
+**What it does**:
+- Verifies ticket status is `review`
+- Verifies the feature branch is checked out
+- Reads the diff against main
+- Generates a Verification Checklist (for human) section with specific, observable steps to verify each Acceptance Criterion
+- Includes Setup, Core Functionality, Edge Cases, and Regression Checks sections
+- Runs the test and build commands as a final sanity check
+- Writes the checklist into the ticket file
+
+**Preconditions**: Ticket status is `review`, feature branch checked out.
+
+**Side effects**: Updates the ticket file. Runs test/build commands. Does not modify source code.
+
+## `/ticket-ship TKT-NNN`
+
+**Purpose**: Rebase, test, merge, and (optionally) deploy a reviewed ticket.
+
+**Usage**: `/ticket-ship TKT-005` (after human has verified via the checklist).
+
+**What it does**:
+- Verifies ticket status is `review`
+- Fetches and rebases onto main (stops on conflicts — does not auto-resolve)
+- Runs tests after rebase (must pass)
+- Runs build after rebase (must be clean)
+- Writes Regression Report section
+- Checks out main, pulls latest, merges the feature branch with `--no-ff`
+- Runs tests and build one more time on main (resets on failure)
+- Pushes main to origin
+- If a Deploy command is configured in `.claude/ticket-config.md`, runs it
+- Deletes the feature branch
+- Transitions status to `shipped`
+
+**Preconditions**: Ticket status is `review`, feature branch has commits, working tree clean.
+
+**Side effects**: Rebases, merges, pushes, optionally deploys. **This is the one command that modifies remote state.** Never force-pushes. Resets on test/build failures after merge.
+
+## Where to look if a command isn't doing what you expect
+
+Each command's behavior is defined in `commands/{command-name}.md`. Because the file is symlinked into `~/.claude/commands/`, you can read it directly:
+
+```bash
+cat ~/.claude/commands/ticket-investigate.md
+# or
+cat ~/src/claude-config/commands/ticket-investigate.md
+```
+
+Claude Code reads these files verbatim as the command definition. If you want to tweak behavior for a specific command, edit the file in the repo, commit, push, pull on other machines. No re-install needed (commands are symlinked — edits are live).
