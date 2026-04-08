@@ -41,55 +41,18 @@ link "$DOTFILES/commands"         "$HOME/.claude/commands"
 link "$DOTFILES/plans"            "$HOME/.claude/plans"
 link "$DOTFILES/brief-templates"  "$HOME/.claude/brief-templates"
 
-#— Command aliases (from commands/aliases.map) ————————————————————
-# Read aliases.map and create a symlink inside commands/ for each alias,
-# pointing at the canonical command file. The alias files are gitignored,
-# so they exist on each machine without polluting the repo.
-echo ""
-echo "Command aliases:"
-ALIASES_MAP="$DOTFILES/commands/aliases.map"
-if [ -f "$ALIASES_MAP" ]; then
-  # First pass: remove any stale alias symlinks whose target no longer exists
-  # or whose name no longer appears in aliases.map. Keeps the list in sync
-  # when you remove/rename an alias.
-  CURRENT_ALIASES=$(awk '!/^#/ && NF>=2 {print $1}' "$ALIASES_MAP" | tr '\n' ' ')
+#— Reap any leftover alias symlinks from earlier alias experiments ——
+# Older versions of this repo created symlinks like commands/tb.md → ticket-batch.md.
+# That caused the Claude Code harness to dedupe by symlink target and silently hide
+# half of the canonical command names. Clean any of those up if they're still around.
+if [ -d "$DOTFILES/commands" ]; then
   for f in "$DOTFILES/commands/"*.md; do
     [ -L "$f" ] || continue
     base=$(basename "$f" .md)
-    # Skip canonical ticket-* files (they're real files, not aliases).
     case "$base" in ticket-*) continue ;; esac
-    # If this alias isn't in the current map, remove it.
-    case " $CURRENT_ALIASES " in
-      *" $base "*) ;;  # still in map, keep
-      *) rm -f "$f"; echo "  - removed stale alias: $base.md" ;;
-    esac
+    rm -f "$f"
+    echo "  - removed legacy alias symlink: commands/$base.md"
   done
-  # Second pass: create/refresh symlinks for every alias in the map.
-  while IFS= read -r line; do
-    # Strip comments and blank lines.
-    line="${line%%#*}"
-    [ -z "${line// }" ] && continue
-    alias=$(echo "$line" | awk '{print $1}')
-    target=$(echo "$line" | awk '{print $2}')
-    [ -z "$alias" ] || [ -z "$target" ] && continue
-    TARGET_FILE="$DOTFILES/commands/$target.md"
-    ALIAS_FILE="$DOTFILES/commands/$alias.md"
-    if [ ! -f "$TARGET_FILE" ]; then
-      echo "  ✗ alias $alias → $target: target missing ($TARGET_FILE)"
-      continue
-    fi
-    # If the alias already exists and points at the right target, skip.
-    if [ -L "$ALIAS_FILE" ] && [ "$(readlink "$ALIAS_FILE")" = "$target.md" ]; then
-      echo "  ✓ /$alias → /$target"
-      continue
-    fi
-    [ -e "$ALIAS_FILE" ] && rm "$ALIAS_FILE"
-    # Use a relative target so the symlink works through any parent symlinks.
-    ln -s "$target.md" "$ALIAS_FILE"
-    echo "  → /$alias → /$target"
-  done < "$ALIASES_MAP"
-else
-  echo "  - no aliases.map found; skipping"
 fi
 
 #— Settings merge (jq) ————————————————————————————————————————————
