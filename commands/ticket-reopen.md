@@ -1,3 +1,8 @@
+---
+description: Bring a terminal ticket back to active
+argument-hint: TKT-XXX [reason...]
+---
+
 # Reopen a Ticket
 
 Bring a ticket out of a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`) back into the active set. Use this when a shipped change regressed, a deferred ticket's moment has come, or a closed ticket turned out to be real after all.

@@ -1,3 +1,8 @@
+---
+description: Create a new ticket
+argument-hint: "short description"
+---
+
 # Create a New Ticket
 
 You are creating a new ticket in the current project. The user will describe a bug, feature, or enhancement.

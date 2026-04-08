@@ -1,3 +1,8 @@
+---
+description: List tickets
+argument-hint: [--all]
+---
+
 # List Tickets
 
 Show the current state of all tickets in the project.

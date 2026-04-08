@@ -1,3 +1,8 @@
+---
+description: Launch a ticket preview
+argument-hint: TKT-XXX
+---
+
 # Preview a Ticket
 
 Build and launch an inspectable version of a ticket's feature branch **without** merging to main. This is how you smoke-test before shipping: localhost, staging, simulator, whatever the project defines as "preview."

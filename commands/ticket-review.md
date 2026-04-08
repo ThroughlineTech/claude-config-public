@@ -1,3 +1,8 @@
+---
+description: Generate a verification checklist
+argument-hint: TKT-XXX
+---
+
 # Review a Ticket
 
 You are presenting a completed ticket implementation for human review. Generate a verification checklist that the user can follow to confirm the work is done correctly.

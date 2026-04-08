@@ -1,3 +1,8 @@
+---
+description: Close a ticket as wontfix
+argument-hint: TKT-XXX {reason...}
+---
+
 # Close a Ticket (wontfix)
 
 Move an active ticket to the `wontfix/` subfolder. "Close" means "done thinking about this — it won't be done": duplicate, invalid, obsolete, rejected, superseded. Unlike `/ticket-defer`, closed tickets are not expected to come back. (They still can via `/ticket-reopen` if a regression forces it.)

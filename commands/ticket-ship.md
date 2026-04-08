@@ -1,3 +1,8 @@
+---
+description: Merge and deploy a ticket
+argument-hint: TKT-XXX
+---
+
 # Ship a Ticket
 
 You are merging an approved ticket to main and (optionally) deploying.

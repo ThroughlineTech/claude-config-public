@@ -1,3 +1,8 @@
+---
+description: Run multiple tickets in parallel worktrees
+argument-hint: [TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]
+---
+
 # Batch a Set of Tickets
 
 Run investigate → auto-approve → implement → preview on multiple tickets in parallel, each in its own git worktree. Notify the user once when the whole batch is ready (via the push-notification channel configured in `~/.claude/CLAUDE.md`, if any). This is the workflow for queuing up work and coming back later to smoke-test everything at once.

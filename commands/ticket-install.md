@@ -1,3 +1,7 @@
+---
+description: Install the ticket workflow into this project
+---
+
 # Install the Ticket Workflow Into This Project
 
 You are bootstrapping a project (new or existing) to use the universal ticket workflow. The slash commands themselves live at `~/.claude/commands/ticket-*.md` and are inherited by every project automatically. This command creates the per-project scaffolding the universal commands need: a tickets directory, a template, and a `.claude/ticket-config.md` that records project-specific build/test/deploy commands and key source paths.
