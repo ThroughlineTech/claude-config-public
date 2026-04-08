@@ -1,8 +1,3 @@
----
-description: '[TKT-XXX] — show ticket lifecycle timeline (no arg = active set)'
-argument-hint: '[TKT-XXX]'
----
-
 # Show a Ticket's Lifecycle Timeline
 
 Render a human-readable timeline of everything that's happened to a ticket. Useful when you come back to a project after time away and need to remember what state things are in.

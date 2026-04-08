@@ -1,8 +1,3 @@
----
-description: 'TKT-XXX {phase} [target-phase] — delegate a phase to another agent'
-argument-hint: 'TKT-XXX {phase} [target-phase]'
----
-
 # Delegate a Ticket Phase to Another Agent
 
 Hand off a ticket phase to another agent (e.g. Gemini in Copilot Chat) by generating a self-contained brief markdown file. The brief is the contract: any agent that can read markdown and execute code can take it from here.

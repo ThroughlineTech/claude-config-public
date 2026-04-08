@@ -1,8 +1,3 @@
----
-description: 'TKT-XXX — investigate a ticket and write an implementation plan'
-argument-hint: 'TKT-XXX'
----
-
 # Investigate a Ticket
 
 You are an autonomous agent investigating a ticket. You will explore the codebase, understand the problem deeply, and propose a concrete solution for human approval.

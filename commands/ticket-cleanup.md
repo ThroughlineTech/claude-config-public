@@ -1,8 +1,3 @@
----
-description: '[TKT-XXX | --all] — reap stale worktrees and preview processes'
-argument-hint: '[TKT-XXX | --all]'
----
-
 # Reap Stale Worktrees and Previews
 
 The safety-net cleanup command. Removes worktrees and kills preview processes for tickets that no longer need them — because they shipped, were closed, deferred, or the ticket file was deleted entirely. Also used to explicitly tear down a single ticket's preview.

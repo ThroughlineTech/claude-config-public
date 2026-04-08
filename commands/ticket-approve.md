@@ -1,8 +1,3 @@
----
-description: 'TKT-XXX — approve and implement an investigated ticket'
-argument-hint: 'TKT-XXX'
----
-
 # Approve and Implement a Ticket
 
 You are an autonomous agent implementing an approved ticket. You will create a branch, implement the solution, write tests, verify no regressions, and present results for review.

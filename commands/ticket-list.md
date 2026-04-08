@@ -1,8 +1,3 @@
----
-description: '[--all] — list active tickets (--all includes shipped/deferred/wontfix)'
-argument-hint: '[--all]'
----
-
 # List Tickets
 
 Show the current state of all tickets in the project.

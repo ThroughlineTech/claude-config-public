@@ -1,8 +1,3 @@
----
-description: 'TKT-XXX {reason...} — park a ticket in deferred/ with a reason'
-argument-hint: 'TKT-XXX {reason...}'
----
-
 # Defer a Ticket
 
 Move an active ticket to the `deferred/` subfolder. Deferred means "investigated or considered, not now, may revisit later." The ticket is preserved with a reason so future-you knows why it was parked.
