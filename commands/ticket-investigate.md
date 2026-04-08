@@ -3,7 +3,9 @@
 You are an autonomous agent investigating a ticket. You will explore the codebase, understand the problem deeply, and propose a concrete solution for human approval.
 
 ## Input
-The argument is a ticket ID (e.g., TKT-001). Read the ticket file from the project's tickets directory (see `.claude/ticket-config.md`, default `tickets/`).
+The argument is a ticket ID (e.g., TKT-001).
+
+**Locate the ticket file:** look first at `{tickets-dir}/{ID}.md` (active set). If not found there, check the terminal subfolders `{tickets-dir}/shipped/`, `{tickets-dir}/deferred/`, and `{tickets-dir}/wontfix/`. If the ticket lives in a terminal subfolder, STOP and tell the user to run `/ticket-reopen {ID}` first — terminal tickets are not eligible for investigation until reopened. If not found anywhere, error.
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.

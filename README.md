@@ -42,13 +42,19 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | Command | When to use it |
 |---|---|
 | `/ticket-new "short description"` | Start tracking a new bug, feature, or enhancement |
-| `/ticket-list` | "Where am I? What's in flight?" |
+| `/ticket-list` | "Where am I? What's in flight?" (active-only; `--all` includes terminals) |
 | `/ticket-investigate TKT-001` | Have Claude Code explore the codebase and write a plan |
 | `/ticket-approve TKT-001` | Branch + implement the plan (Claude Code does the work) |
 | `/ticket-delegate TKT-001 implement` | Hand the implementation to Gemini or another model via Copilot Chat |
 | `/ticket-collect TKT-001` | After a delegation returns, pull the work back into the Claude Code flow |
 | `/ticket-review TKT-001` | Generate a human verification checklist |
-| `/ticket-ship TKT-001` | Rebase, run tests, merge, (optionally) deploy |
+| `/ticket-preview TKT-001` | Launch the ticket's feature branch locally (or on staging/simulator) without shipping |
+| `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one notification at end |
+| `/ticket-ship TKT-001` | Rebase, run tests, merge, (optionally) deploy; archives to `tickets/shipped/` |
+| `/ticket-defer TKT-001 {reason}` | Park a ticket in `tickets/deferred/` with a reason (any language, translated to English) |
+| `/ticket-close TKT-001 {reason}` | Close as wontfix (duplicate, invalid, obsolete) → `tickets/wontfix/` |
+| `/ticket-reopen TKT-001` | Bring a terminal ticket back to active (regression, deferred work returns, etc.) |
+| `/ticket-cleanup [ID|--all]` | Reap stale worktrees + preview processes; also runs ambiently as preflight |
 | `/ticket-status TKT-001` | "What happened to this ticket? What's the next step?" |
 
 See **[docs/02-ticket-workflow.md](docs/02-ticket-workflow.md)** for the full lifecycle and examples, or **[docs/05-commands-reference.md](docs/05-commands-reference.md)** for a terse one-section-per-command reference.
@@ -79,9 +85,11 @@ claude-config/
 
   commands/                          ← Claude Code universal slash commands
     README.md
-    ticket-install.md  ticket-new.md  ticket-list.md
-    ticket-investigate.md  ticket-approve.md  ticket-review.md  ticket-ship.md
-    ticket-delegate.md  ticket-collect.md  ticket-status.md
+    ticket-install.md  ticket-new.md  ticket-list.md  ticket-status.md
+    ticket-investigate.md  ticket-approve.md  ticket-review.md
+    ticket-preview.md  ticket-batch.md  ticket-ship.md
+    ticket-defer.md  ticket-close.md  ticket-reopen.md  ticket-cleanup.md
+    ticket-delegate.md  ticket-collect.md
 
   brief-templates/                   ← templates for cross-model delegation briefs
     README.md

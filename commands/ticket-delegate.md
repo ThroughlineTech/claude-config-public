@@ -15,7 +15,7 @@ Examples:
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.
-- The ticket file at the configured tickets directory must exist.
+- The ticket file must exist at `{tickets-dir}/{ID}.md`. If it lives in a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`), STOP and tell the user to run `/ticket-reopen {ID}` first.
 - Brief templates must be available at `~/.claude/brief-templates/{phase}.md` (which is symlinked from the claude-config repo). If missing, tell the user the dotfiles install is incomplete.
 
 ## Phase-specific status preconditions

@@ -7,7 +7,7 @@ Argument: `{ID}` (e.g. `TKT-005`)
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist
-- The ticket file must exist
+- The ticket file must exist at `{tickets-dir}/{ID}.md`. If it lives in a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`), STOP — collect only operates on active tickets.
 - Ticket status MUST be `delegated`. If not, report status and stop.
 - The Delegation Log section must exist with at least one entry (otherwise nothing is delegated to collect)
 

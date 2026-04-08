@@ -5,9 +5,13 @@ Render a human-readable timeline of everything that's happened to a ticket. Usef
 ## Input
 Argument: `{ID}` (e.g. `TKT-005`)
 
-If no argument given: show the timeline for every ticket that is NOT `shipped` or `closed` (the active set).
+If no argument given: show a one-line summary for every ticket in the **active set** — i.e., files directly under `{tickets-dir}/` only. Do NOT recurse into `shipped/`, `deferred/`, or `wontfix/`.
+
+When a specific `{ID}` is given, **locate the ticket file** by checking `{tickets-dir}/{ID}.md` first, then the terminal subfolders (`shipped/`, `deferred/`, `wontfix/`). Render the timeline wherever it is found — `/ticket-status` is read-only and works on terminal tickets too.
 
 ## Steps
+
+0. **Auto-reap preflight (silent):** run the `/ticket-cleanup` no-arg logic inline — reap any stale worktrees (tickets in terminal folders or missing). If anything was reaped, print a one-line note at the top ("auto-reaped N stale worktrees"). If nothing was reaped, say nothing.
 
 1. **Read `.claude/ticket-config.md`** to find the tickets directory.
 

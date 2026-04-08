@@ -16,18 +16,91 @@ Four reasons:
 Every ticket moves through these statuses (defined in `tickets/TEMPLATE.md`):
 
 ```
-open → proposed → [delegated] → in-progress → review → shipped
-         ↓
-       closed (abandoned)
+open → proposed → [delegated] → in-progress → review → shipped  (→ shipped/)
+  ↓                                                ↓
+  └──────────────→  deferred (→ deferred/)    wontfix (→ wontfix/)
 ```
 
+**Active statuses** (ticket file lives at `tickets/{ID}.md`):
 - **open** — created but not yet investigated
 - **proposed** — investigation complete, plan written, awaiting approval
 - **delegated** — work has been handed off to another agent (via `/ticket-delegate`); brief file exists
-- **in-progress** — approved and being implemented by Claude Code
+- **in-progress** — approved and being implemented
 - **review** — implementation complete, awaiting human verification
-- **shipped** — merged to main (and deployed, if applicable)
-- **closed** — abandoned without shipping
+
+**Terminal statuses** (ticket file is moved into a subfolder, with `git mv`, so the active set stays clean):
+- **shipped** → `tickets/shipped/{ID}.md` — merged to main (and deployed, if applicable). Set by `/ticket-ship`.
+- **deferred** → `tickets/deferred/{ID}.md` — investigated or considered, not doing it right now, may revisit. Set by `/ticket-defer {ID} {reason}`.
+- **wontfix** → `tickets/wontfix/{ID}.md` — closed without shipping: duplicate, invalid, obsolete, superseded. Set by `/ticket-close {ID} {reason}`.
+
+Terminal tickets can be brought back to active with `/ticket-reopen {ID}` — useful when a shipped change regresses, a deferred ticket's moment arrives, or a closed one turns out to be real after all. The terminal subfolders are **created lazily** on first use (no `.gitkeep` — the first `git mv` populates them).
+
+## Preview vs. ship
+
+These are two different operations and mixing them up will hurt you:
+
+- **Preview** = build the ticket's feature branch and make it inspectable without touching main. Localhost, staging URL, iOS simulator, whatever the project's `Preview command` is configured to do. `/ticket-preview {ID}` runs the preview for one ticket; `/ticket-batch` runs previews for many.
+- **Ship** = merge to main, (optionally) deploy to prod, archive the ticket into `tickets/shipped/`. This is the production action. Always an explicit per-ticket decision.
+
+You smoke-test in **preview**. You ship what passes. Never ship to smoke-test.
+
+### Preview profiles
+
+Real projects aren't one-shape-fits-all. A repo can have a macOS host and an iOS companion, or a client and a server that must both run for any test to be meaningful. So `.claude/ticket-config.md` defines **preview profiles** — named recipes — and each ticket picks one via its `app:` field.
+
+Profiles come in two flavors:
+
+- **Atomic profile** — one command that launches one thing. Has a Command, a Port offset, a Ready-when rule (`http {path}` / `log {pattern}` / `delay {seconds}` / `command-exit`), a Sequential flag (true for things like iOS simulator that can't coexist), and an optional Depends-on list.
+- **Compound profile** — an ordered list of atomic profiles to launch together. The canonical use cases: `fullstack: [server, client]` where the client needs a running server, and `pair: [macos, ios]` where an iOS companion app needs its macOS host running (Bonjour pairing, cross-device features, etc.).
+
+**Port computation** is deterministic per (ticket, component): `{Preview port base} + {numeric-id} + {component's port offset}`. The first component has offset 0, each subsequent atomic profile defaults to offset +1000. So TKT-014's `fullstack` preview is server on `3014` and client on `4014`. Same ticket always gets the same ports — no collisions between parallel previews.
+
+**Placeholders** inside a profile's Command:
+- `{PORT}` — this component's computed port
+- `{ID}`, `{BRANCH}`, `{WORKTREE}` — ticket-level substitutions
+- `{<OTHER_COMPONENT>_PORT}` — another component's port in the same compound (e.g. `{SERVER_PORT}` inside the client command), substituted after all ports are computed
+
+Each ticket's frontmatter has an `app:` field naming the profile it uses. `/ticket-new` asks at creation time (via AskUserQuestion) if the project has 2+ profiles; otherwise it picks silently. `/ticket-preview` reads `app:`, looks up the profile, launches all its components in dependency order, waits for each component's readiness signal, and records a multi-line `.preview.pid` file so teardown can kill everything cleanly.
+
+`Preview mode` stays project-wide: `auto` (rollup if possible, fall back to individual on merge conflict), `rollup` (combine or fail), `individual` (one preview per ticket). `auto` automatically degrades to `individual` if any profile in the project has a `Sequential: true` component (iOS simulator, anything else that's a system singleton).
+
+**Batch grouping.** `/ticket-batch` groups tickets by their `app:` profile and handles each group independently: server-only tickets can rollup + run parallel, iOS tickets run sequentially, fullstack tickets run at their own port pair per ticket. One final push notification, grouped preview summary.
+
+## Batch workflow
+
+`/ticket-batch` is the "queue up a bunch of work and come back later" command. It:
+
+1. Auto-reaps any stale worktrees from previous batches.
+2. Takes a list of ticket IDs (or all `open` tickets with no argument).
+3. Creates a **git worktree** per ticket under `.worktrees/ticket-{id}/`. Parallel worktrees mean no branch-switching contention and each subagent gets fresh context.
+4. Does a pre-implement conflict check (advisory, based on Implementation Plans) and warns about overlaps.
+5. Spawns one subagent per ticket, **in parallel**, to run investigate → auto-approve → implement. Each subagent works entirely inside its own worktree.
+6. **High regression risk is a manual gate** — if a ticket's investigation writes `Regression Risk: high`, the batch pauses it at `proposed` and calls it out in the final report. Everything else auto-implements.
+7. Does a post-implement conflict check (authoritative, based on `git diff` file sets) and attaches "also modified by TKT-XXX" notes to the preview output.
+8. Runs the preview in whichever mode the project is configured for.
+9. **Sends one push notification** when the whole batch is ready. Never per-ticket.
+
+You then come back, poke at the previews, and decide each ticket's fate with `/ticket-ship`, `/ticket-defer`, or `/ticket-close`.
+
+### The auto-cleanup contract
+
+You never manage worktrees or preview processes by hand. The system cleans up through three layers:
+
+1. **Side-effects on terminal transitions.** `/ticket-ship`, `/ticket-defer`, `/ticket-close` all kill the ticket's preview process and remove its worktree as a final step. If a rollup preview is live when you defer or close a ticket, the rollup is **rebuilt** excluding that ticket (or killed if no `review` tickets remain).
+2. **Explicit reaper.** `/ticket-cleanup` is the manual form: `/ticket-cleanup {ID}` for one ticket, `/ticket-cleanup --all` for everything, or `/ticket-cleanup` with no arg to reap only stale worktrees (tickets in terminal folders or missing).
+3. **Ambient auto-reap.** `/ticket-list`, `/ticket-status`, and `/ticket-batch` all run the no-arg reaper as a silent preflight step. You never have to remember to clean up — it happens because you were already going to look at tickets.
+
+Together these guarantee: a shipped ticket never leaves a worktree behind, a crashed batch self-heals the next time you run any ticket command, and `.worktrees/` only ever contains in-flight work.
+
+`.worktrees/` should be in `.gitignore`.
+
+### Why subfolders
+
+ID allocation is derived from the highest existing ticket number. `/ticket-new` scans `tickets/**/{PREFIX}*.md` **recursively** — including the terminal subfolders — so a shipped or closed ticket can never have its ID reused. This is a load-bearing invariant: if you add new terminal states later, they MUST be scanned by `/ticket-new` too, or numbering will collide.
+
+### Reasons are stored in English
+
+`/ticket-defer` and `/ticket-close` require a reason. You can type the reason in any language (e.g. Danish); the command translates it to clear English before writing it into the ticket. Only the English form is stored — there's no value in keeping both.
 
 ## The canonical lifecycle (Claude Code does everything)
 

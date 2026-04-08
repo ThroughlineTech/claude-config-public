@@ -3,7 +3,9 @@
 You are an autonomous agent implementing an approved ticket. You will create a branch, implement the solution, write tests, verify no regressions, and present results for review.
 
 ## Input
-The argument is a ticket ID (e.g., TKT-001). Read the ticket file from the project's tickets directory (see `.claude/ticket-config.md`).
+The argument is a ticket ID (e.g., TKT-001).
+
+**Locate the ticket file:** look at `{tickets-dir}/{ID}.md` first. If the ticket is in a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`), STOP and tell the user to run `/ticket-reopen {ID}` first.
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.

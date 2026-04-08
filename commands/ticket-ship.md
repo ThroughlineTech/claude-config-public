@@ -3,7 +3,9 @@
 You are merging an approved ticket to main and (optionally) deploying.
 
 ## Input
-The argument is a ticket ID (e.g., TKT-001). Read the ticket file from the project's tickets directory (see `.claude/ticket-config.md`).
+The argument is a ticket ID (e.g., TKT-001).
+
+**Locate the ticket file:** it must be at `{tickets-dir}/{ID}.md` (active set). If it lives in `shipped/`, `deferred/`, or `wontfix/`, STOP — a terminal ticket cannot be shipped again. (Use `/ticket-reopen {ID}` if this is an intentional re-ship.)
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.
@@ -56,6 +58,43 @@ If Deploy is empty or `(none)`:
 1. Delete the feature branch: `git branch -d ticket/{branch-name}`
 2. Update ticket status to `shipped`
 3. Update the `updated` date
+
+## Phase 6: Archive the ticket file
+
+Move the ticket (and any sibling brief files) into `{tickets-dir}/shipped/` so the active set stays clean.
+
+1. Create `{tickets-dir}/shipped/` if it does not yet exist (lazy creation — no `.gitkeep`, the first `git mv` populates it).
+2. Move the ticket file with `git mv` (NOT `cp`, NOT plain `mv` — we want git to track the rename so history is preserved):
+   ```
+   git mv {tickets-dir}/{TKT-ID}.md {tickets-dir}/shipped/{TKT-ID}.md
+   ```
+3. Move any associated brief files the same way:
+   ```
+   git mv {tickets-dir}/{TKT-ID}.*.brief.md {tickets-dir}/shipped/
+   ```
+   (Skip this if no brief files exist for the ticket.)
+4. Commit the move on `{main}`: `git commit -m "{TKT-ID}: archive shipped ticket"`
+5. Push: `git push origin {main}`
+
+## Phase 7: Decruft (automatic worktree + preview teardown)
+
+This phase runs automatically — the user never asks for it. It is the mechanism that keeps the project tree clean.
+
+1. **Kill all preview components for this ticket** (one ticket can run multiple components if it used a compound profile):
+   - Read `.worktrees/ticket-{lowercased-id}/.preview.pid` if present. Each line is `{component-name}  {pid}  {port}`.
+   - Kill each PID in **reverse launch order** (last-launched first — so dependents go down before the things they depend on). Skip lines where PID is `-` (command-exit components, nothing persistent to kill).
+   - Use SIGTERM first, escalate to SIGKILL after 3 seconds per PID. On Windows, `taskkill /F /PID {pid}`.
+   - Delete the `.preview.pid` and `.preview.meta` files.
+2. **Remove the ticket's worktree** if one exists:
+   - `git worktree remove .worktrees/ticket-{lowercased-id}` (with `--force` as a fallback — by ship time the worktree's contents don't matter).
+   - If that fails entirely, `rm -rf .worktrees/ticket-{lowercased-id}` + `git worktree prune`.
+3. **If a rollup preview is currently live** (a worktree at `.worktrees/batch-preview-*/` with a live `.preview.pid`), rebuild it:
+   - Kill the current rollup preview.
+   - Remove the current rollup scratch branch.
+   - Recreate the rollup from `{main}` by merging every remaining `review`-status ticket branch in the batch in ID order.
+   - Relaunch the preview on the new rollup.
+   - If no `review`-status tickets remain, just kill the rollup and don't rebuild.
+4. Report any decruft actions in the final output so the user knows what was cleaned up.
 
 ## Finish
 
