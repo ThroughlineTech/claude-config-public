@@ -81,6 +81,16 @@ Collect each subagent's result. Track:
 - Which tickets stopped at `proposed` (high regression risk — manual gate)
 - Which tickets failed outright (with reason)
 
+### Copy updated ticket files back to the main working directory
+
+Subagents write to worktree copies of the ticket files, but the user views and edits tickets from the main branch. After all subagents complete, sync the results back:
+
+1. For each ticket that reached `proposed` or `review` status, copy `.worktrees/ticket-{lowercased-id}/tickets/{ID}.md` over `tickets/{ID}.md` in the main working directory.
+2. Stage the updated ticket files: `git add tickets/{ID}.md` for each.
+3. Commit: `ticket-batch: update {N} tickets with investigation results` (where N is the number of files copied).
+
+If no tickets were updated (all failed), skip this step.
+
 ## Phase 5: Post-implement conflict check (dynamic)
 
 For each ticket that successfully reached `review`, run `git diff {main}...{branch} --name-only` and collect the file lists. Intersect them pairwise.

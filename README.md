@@ -57,7 +57,7 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-cleanup [ID\|--all]` | Reap stale worktrees + preview processes; also runs ambiently as preflight |
 | `/ticket-status TKT-001` | "What happened to this ticket? What's the next step?" |
 
-**Short aliases** are available for every command — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. Defined in [commands/aliases.map](commands/aliases.map); install.sh creates per-machine symlinks from the map.
+**Short aliases** are available for every command — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. Defined in [commands/aliases.map](commands/aliases.map); install.sh generates per-machine wrapper `.md` files from the map (gitignored, real files not symlinks — the harness dedupes symlinked commands).
 
 See **[docs/02-ticket-workflow.md](docs/02-ticket-workflow.md)** for the full lifecycle and examples, or **[docs/05-commands-reference.md](docs/05-commands-reference.md)** for a terse one-section-per-command reference.
 

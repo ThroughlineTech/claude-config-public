@@ -10,14 +10,22 @@ Each file is a Claude Code slash command definition. The filename (minus `.md`) 
 |---|---|---|
 | `ticket-install.md` | `/ticket-install` | Bootstrap a project for the ticket workflow |
 | `ticket-new.md` | `/ticket-new "title"` | Create a new ticket |
-| `ticket-list.md` | `/ticket-list` | Show all tickets grouped by status |
+| `ticket-list.md` | `/ticket-list [--all]` | Show active tickets (pass `--all` for terminals too) |
 | `ticket-investigate.md` | `/ticket-investigate TKT-NNN` | Explore code, write a plan into the ticket |
 | `ticket-approve.md` | `/ticket-approve TKT-NNN` | Branch + implement the plan |
 | `ticket-delegate.md` | `/ticket-delegate TKT-NNN phase` | Hand a phase to another agent via a brief |
 | `ticket-collect.md` | `/ticket-collect TKT-NNN` | Collect work returned from a delegated phase |
-| `ticket-status.md` | `/ticket-status TKT-NNN` | Show the lifecycle timeline of a ticket |
+| `ticket-status.md` | `/ticket-status [TKT-NNN]` | Show the lifecycle timeline of a ticket |
 | `ticket-review.md` | `/ticket-review TKT-NNN` | Generate a human verification checklist |
-| `ticket-ship.md` | `/ticket-ship TKT-NNN` | Rebase, test, merge, deploy |
+| `ticket-preview.md` | `/ticket-preview TKT-NNN` | Launch the ticket's branch locally without shipping |
+| `ticket-batch.md` | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees |
+| `ticket-ship.md` | `/ticket-ship TKT-NNN` | Rebase, test, merge, deploy; archive to `tickets/shipped/` |
+| `ticket-defer.md` | `/ticket-defer TKT-NNN {reason}` | Park a ticket in `tickets/deferred/` |
+| `ticket-close.md` | `/ticket-close TKT-NNN {reason}` | Close as wontfix → `tickets/wontfix/` |
+| `ticket-reopen.md` | `/ticket-reopen TKT-NNN` | Bring a terminal ticket back to active |
+| `ticket-cleanup.md` | `/ticket-cleanup [ID\|--all]` | Reap stale worktrees + preview processes |
+
+**Short aliases** are generated on each machine by `install.sh` from [`aliases.map`](aliases.map) — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. The generated wrapper `.md` files are gitignored (they're real files, not symlinks — the harness dedupes symlinked commands to a single entry).
 
 ## Editing a command
 

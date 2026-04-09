@@ -2,6 +2,18 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.2-public] — 2026-04-09
+
+### Added
+
+- **Command frontmatter** restored — every `/ticket-*` command has `description` and `argument-hint` fields so the slash-command picker shows what the command does and the expected arguments inline.
+- **Short aliases via real-file wrappers** — `install.sh` generates gitignored real `.md` wrapper files from `aliases.map` instead of symlinks. The Claude Code harness dedupes symlinked commands to a single entry, hiding either the alias or the canonical — real files avoid this.
+
+### Fixed
+
+- **`/ticket-batch` worktree sync-back** — after Phase 4 subagents complete, ticket files that reached `proposed` or `review` status are now copied from `.worktrees/ticket-{id}/tickets/{ID}.md` back to `tickets/{ID}.md` in the main working directory, staged, and committed. Previously the main branch copies remained stale after a batch investigation because subagents only wrote to their worktree copies.
+- **Stale alias descriptions and missing commands in READMEs** — commands/README.md and main README.md updated to reflect the full v0.2.0 command set and real-file alias approach.
+
 ## [0.2.1-public] — 2026-04-08
 
 ### Added
