@@ -1,12 +1,40 @@
 # Cross-Model Delegation
 
-The delegation system lets you hand any ticket phase to any model in any tool. Use Claude Code as the orchestrator; farm out specific phases (investigation, implementation, review, or peer review of any of those) to Gemini, GPT, or any other model via Copilot Chat.
+The delegation system lets you hand a ticket to a different model entirely. The default — `/ticket-delegate 5` with no phase — delegates the **full lifecycle**: the other model investigates, implements, commits, and pushes. Claude reviews the work on collect. One handoff, one context switch.
+
+You can also delegate individual phases if you need surgical control, but the full-lifecycle delegation is the primary workflow.
 
 ## Why this exists
 
-Different models are better at different things. You said early on: "Gemini is just better at some UI work." Same is true the other way — Claude is often better at architectural reasoning and tracing complex codebases. You shouldn't have to pick one tool and hope it's good at everything. You should be able to use Claude Code as your general contractor and bring in specialists for specific tasks.
+Different models are better at different things. Gemini is often better at UI work; Claude is often better at architectural reasoning and tracing complex codebases. If you let Claude investigate a UI ticket, Claude's investigation shapes the implementation plan — and the model that actually does the UI work is constrained by Claude's perspective. Better to let the implementing model investigate too, so it can approach the problem its own way.
 
-The technical problem: Claude Code can't directly invoke Gemini (no API hook from Claude Code into Copilot Chat). So we use **the filesystem as the bridge**. Claude Code generates a self-contained markdown brief; you switch tools; the other model reads the brief and executes it; you switch back; Claude Code picks up the results.
+The technical problem: Claude Code can't directly invoke Gemini (no API hook from Claude Code into Copilot Chat). So we use **the filesystem as the bridge**. Claude Code generates a self-contained markdown brief; you switch tools; the other model reads the brief and executes it; you switch back; Claude Code reviews the results.
+
+## The default: full-lifecycle delegation
+
+```bash
+/ticket-delegate 5
+# Creates a branch, writes tickets/TKT-005.full.brief.md
+# Status: open → delegated
+
+# In VS Code Copilot Chat (Gemini, GPT, whatever):
+/run-brief tickets/TKT-005.full.brief.md
+# The model investigates, implements, tests, commits, pushes
+
+# Back in Claude Code:
+/ticket-collect 5
+# Claude reviews the diff, checks quality, writes a Delegation Review
+# Verdict: approved → status becomes review
+# Verdict: concerns → status becomes review (with flagged issues)
+# Verdict: rejected → stays delegated (blocking issues found)
+
+# If approved:
+/ticket-ship 5
+```
+
+The brief tells the other model: "this is your ticket, approach it your way." It gets the ticket description, acceptance criteria, project rules, and key source locations — but no pre-existing investigation or plan. The model does its own analysis.
+
+On `/ticket-collect`, Claude acts as **code reviewer**: reads the investigation for soundness, reviews the full diff for quality and correctness, checks tests are meaningful, verifies acceptance criteria are met. Writes a `## Delegation Review` section with a verdict (`approved`, `concerns`, or `rejected`) and specific issues if any.
 
 ## The brief format — the contract between tools
 
@@ -24,10 +52,11 @@ A brief is a markdown file at `{tickets-dir}/TKT-XXX.{phase}.brief.md`. It conta
 
 Briefs are generated from templates in `brief-templates/` — one template per phase. `/ticket-delegate` reads the right template, fills in placeholders, and writes the result into the project's tickets directory.
 
-## The six phases that can be delegated
+## Delegation modes
 
 | Phase tag | Template | What the executing agent does |
 |---|---|---|
+| *(none — full)* | `brief-templates/full.md` | **Full lifecycle**: investigate, implement, test, commit. Claude reviews on collect. |
 | `investigate` | `brief-templates/investigate.md` | Explore the codebase, write Investigation + Proposed Solution + Implementation Plan into the ticket |
 | `implement` | `brief-templates/implement.md` | On an already-created branch, implement the plan, add tests, commit, push |
 | `review` | `brief-templates/review.md` | Read the diff, write a human Verification Checklist into the ticket |
@@ -35,7 +64,7 @@ Briefs are generated from templates in `brief-templates/` — one template per p
 | `verify implement` | `brief-templates/verify-implement.md` | Peer-review the diff against the plan; write a "Peer Review" section |
 | `verify review` | `brief-templates/verify-review.md` | Peer-review the Verification Checklist; write a "Peer Review" section |
 
-The three primary phases (`investigate`, `implement`, `review`) replace the corresponding Claude Code action. The three verify phases are additive — they layer a second opinion on top of an existing phase output.
+Full-lifecycle delegation is the default and recommended mode. Use phase-specific delegation when you want Claude to handle some phases and another model to handle others (e.g., Claude investigates, Gemini implements).
 
 ## The Copilot-side piece
 
@@ -63,46 +92,46 @@ Because the prompt is model-agnostic, the same `/run-brief` command works with G
 
 Everything flows through the filesystem. Neither tool knows about the other; they just read and write the same markdown files.
 
-## Example: delegate implementation to Gemini
+## Example: full-lifecycle delegation to Gemini
 
-You're working on `TKT-005: Redesign the project picker dropdown`. Claude Code has already investigated. You want Gemini to do the UI implementation because it's better at that.
+You're working on `TKT-005: Redesign the project picker dropdown`. It's a UI-heavy ticket, and Gemini tends to nail these. You want Gemini to handle the whole thing — investigation, implementation, tests — and Claude to review what comes back.
 
 ```bash
-# In Claude Code (orchestrator)
-/ticket-delegate TKT-005 implement
+# In Claude Code
+/ticket-delegate 5
 ```
 
 Output from Claude Code:
 
 ```
-TKT-005 delegated for implement
+TKT-005 delegated (full lifecycle)
 
-Brief written to: tickets/TKT-005.implement.brief.md
+Brief written to: tickets/TKT-005.full.brief.md
 Branch created: ticket/tkt-005-redesign-project-picker-dropdown
 
 Next steps:
 1. Open VS Code in this project
-2. Open Copilot Chat, select your model of choice (e.g. Gemini)
-3. Run: /run-brief tickets/TKT-005.implement.brief.md
-4. When Gemini reports "Brief executed", come back to Claude Code and run:
-   /ticket-collect TKT-005
+2. Open Copilot Chat, select Gemini (or your model of choice)
+3. Run: /run-brief tickets/TKT-005.full.brief.md
+4. When the agent reports "Brief executed", come back to Claude Code and run:
+   /ticket-collect 5
 ```
 
 In VS Code Copilot Chat:
 
 1. Click "New Chat" to start a fresh conversation
-2. Click the model picker, select Gemini (or whatever model)
+2. Click the model picker, select Gemini
 3. Make sure "Agent" mode is enabled (not "Ask")
-4. Type: `/run-brief tickets/TKT-005.implement.brief.md`
+4. Type: `/run-brief tickets/TKT-005.full.brief.md`
 
-Gemini reads the brief, works through the Implementation Plan, commits each step, runs tests, pushes. When done:
+Gemini reads the brief, explores the codebase, writes its own investigation and plan, implements it, adds tests, commits, pushes. When done:
 
 ```
-Brief executed: tickets/TKT-005.implement.brief.md
+Brief executed: tickets/TKT-005.full.brief.md
 Hand back to Claude Code with: /ticket-collect TKT-005
 
-- 4 files changed
-- 2 commits made
+- Regression Risk: low
+- 4 files changed, 3 commits
 - 12 tests added
 - All tests passing: yes
 - Build clean: yes
@@ -111,10 +140,41 @@ Hand back to Claude Code with: /ticket-collect TKT-005
 Back in Claude Code:
 
 ```bash
-/ticket-collect TKT-005
+/ticket-collect 5
 ```
 
-Claude Code pulls the latest from the branch, reads the diff, updates the ticket's "Files Changed" and "Test Report" sections, transitions status from `delegated` to `review`. Then normal flow continues with `/ticket-review` and `/ticket-ship`.
+Claude reads Gemini's investigation for soundness, reviews the full diff, checks test quality, verifies acceptance criteria are met. Writes a `## Delegation Review` into the ticket:
+
+```
+TKT-005 collected from full lifecycle
+
+Delegation Review: approved (2 nits)
+
+  Investigation: thorough, correctly identified the Combobox migration path
+  Implementation: clean, follows project conventions
+  Tests: 12 added, cover all acceptance criteria
+  Nits:
+    1. ProjectPicker.tsx:47 — unused import of `Fragment` (should-fix)
+    2. ProjectPicker.test.tsx:89 — test name is misleading (nit)
+
+Status: delegated → review
+
+Next: /ticket-ship 5   (or fix the nits first)
+```
+
+If Claude had found blocking issues (failing tests, missing acceptance criteria, security problems), the verdict would be `rejected` and the status would stay at `delegated` so you can re-delegate or fix manually.
+
+## Example: phase-specific delegation (implementation only)
+
+If Claude has already investigated and you just want another model to implement:
+
+```bash
+/ticket-delegate 5 implement
+# In Copilot Chat: /run-brief tickets/TKT-005.implement.brief.md
+/ticket-collect 5
+```
+
+This is the surgical version — useful when you trust Claude's investigation but want a different model's implementation style.
 
 ## Example: peer review an investigation
 
@@ -194,26 +254,29 @@ Claude Code sees the peer review, transitions status back to `proposed`, and pri
 
 ## The mental model
 
-Three roles, any mix of models in any of them:
+Two roles:
 
-- **Orchestrator** (usually Claude Code) — creates tickets, decides delegation, ships
-- **Executor** (the model you pick per task) — does the specific phase work
-- **Reviewer** (a different model than the executor) — checks the executor's work
+- **Implementor** (the model you pick per task) — investigates, designs, builds, tests
+- **Reviewer + shipper** (Claude Code) — reviews the work, merges, deploys
 
-You can use Claude Code for all three, or split them however you want. The "use two different models" pattern is where the peer review system earns its keep: it catches things one model alone would miss.
+Full-lifecycle delegation makes this clean: the implementor does everything creative, Claude does the quality gate and the shipping. You choose the best model per ticket based on the type of work.
 
-## When to delegate vs. when to just use `/ticket-approve`
+For phase-specific delegation, there's also a third role:
+- **Peer reviewer** (a different model than the executor) — provides a second opinion on a specific phase
+
+## When to delegate vs. when to use `/ticket-approve` or `/ticket-chain`
 
 | Situation | Use |
 |---|---|
-| Straightforward bug fix | `/ticket-approve` (Claude Code) |
-| UI work where you know another model does better | `/ticket-delegate implement` → other model |
-| Complex architectural change | `/ticket-approve`, then `/ticket-delegate verify implement` for a second opinion |
+| UI work, frontend, design-heavy | `/ticket-delegate` → Gemini (full lifecycle) |
+| Straightforward bug fix | `/ticket-approve` or `/ticket-chain` (Claude does it all) |
+| Batch of backend tickets | `/ticket-chain 1 2 3 4` (Claude handles everything) |
+| Complex architectural change | `/ticket-approve` (Claude), then `/ticket-delegate verify implement` for a second opinion |
 | Investigation feels uncertain | `/ticket-investigate`, then `/ticket-delegate verify investigate` |
-| Pure refactor where correctness matters | Implement it in one tool, verify in the other |
-| Quick iteration loop | `/ticket-approve` — no need for delegation overhead |
+| Multiple tickets, mixed types | `/ticket-chain` for the ones Claude should handle, `/ticket-delegate` for the ones another model should handle |
+| Quick iteration loop | `/ticket-approve` — no delegation overhead |
 
-Rule of thumb: **delegation adds ~5 minutes of tool-switching overhead per handoff**. If the ticket is small enough that 5 minutes is material, don't delegate. If the ticket is big enough that a missed requirement costs you an hour of rework, delegation and/or verification is worth it.
+Rule of thumb: **full-lifecycle delegation adds one context switch** (delegate, run brief, collect). If you know another model will do a better job on the type of work, that's worth it. If Claude would do fine, skip the delegation and use `/ticket-approve` or `/ticket-chain`.
 
 ## Hard rules the brief enforces
 

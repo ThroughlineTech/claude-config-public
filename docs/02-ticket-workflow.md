@@ -64,7 +64,7 @@ Each ticket's frontmatter has an `app:` field naming the profile it uses. `/tick
 
 `Preview mode` stays project-wide: `auto` (rollup if possible, fall back to individual on merge conflict), `rollup` (combine or fail), `individual` (one preview per ticket). `auto` automatically degrades to `individual` if any profile in the project has a `Sequential: true` component (iOS simulator, anything else that's a system singleton).
 
-**Batch grouping.** `/ticket-batch` groups tickets by their `app:` profile and handles each group independently: server-only tickets can rollup + run parallel, iOS tickets run sequentially, fullstack tickets run at their own port pair per ticket. One final push notification, grouped preview summary.
+**Batch grouping.** `/ticket-batch` groups tickets by their `app:` profile and handles each group independently: server-only tickets can rollup + run parallel, iOS tickets run sequentially, fullstack tickets run at their own port pair per ticket. One final prowl, grouped preview summary.
 
 ## Batch workflow
 
@@ -78,7 +78,7 @@ Each ticket's frontmatter has an `app:` field naming the profile it uses. `/tick
 6. **High regression risk is a manual gate** — if a ticket's investigation writes `Regression Risk: high`, the batch pauses it at `proposed` and calls it out in the final report. Everything else auto-implements.
 7. Does a post-implement conflict check (authoritative, based on `git diff` file sets) and attaches "also modified by TKT-XXX" notes to the preview output.
 8. Runs the preview in whichever mode the project is configured for.
-9. **Sends one push notification** when the whole batch is ready. Never per-ticket.
+9. **Sends one prowl** when the whole batch is ready. Never per-ticket.
 
 You then come back, poke at the previews, and decide each ticket's fate with `/ticket-ship`, `/ticket-defer`, or `/ticket-close`.
 
@@ -139,35 +139,32 @@ This is the simplest path: Claude Code does every phase.
 
 ## The cross-model lifecycle (delegate to Gemini)
 
-Same workflow, but the implementation is done by a different model via Copilot Chat:
+Hand the entire ticket to a different model. It investigates and implements with its own perspective; Claude reviews the result.
 
 ```bash
-# 1-3. Same as above
 /ticket-new "..."
-/ticket-investigate TKT-005
-# (you review)
 
-# 4. Delegate the implementation — Claude Code writes a brief file
-/ticket-delegate TKT-005 implement
-# Status: proposed → delegated
+# Delegate the full lifecycle — Claude writes a brief, creates the branch
+/ticket-delegate TKT-005
+# Status: open → delegated
 # Branch ticket/tkt-005-... is created
-# Brief written to: tickets/TKT-005.implement.brief.md
+# Brief written to: tickets/TKT-005.full.brief.md
 
-# 5. Switch to VS Code Copilot Chat, pick a model (e.g. Gemini)
-# Run in Copilot Chat: /run-brief tickets/TKT-005.implement.brief.md
-# Gemini reads the brief, implements the plan, commits, pushes
-# When Gemini reports "Brief executed", you come back to Claude Code
+# Switch to VS Code Copilot Chat, pick a model (e.g. Gemini)
+# Run in Copilot Chat: /run-brief tickets/TKT-005.full.brief.md
+# Gemini investigates, implements, tests, commits, pushes
+# When Gemini reports "Brief executed", come back to Claude Code
 
-# 6. Collect the work — Claude Code reads the diff, updates the ticket
+# Collect — Claude reviews the investigation + diff + tests
 /ticket-collect TKT-005
-# Status: delegated → review
-# Files Changed, Test Report sections filled in (based on the diff + commit messages)
+# Status: delegated → review (if approved)
+# Claude writes a Delegation Review with verdict + any issues
 
-# 7-8. Review and ship as before
-/ticket-review TKT-005
-# (you verify)
+# Ship as before
 /ticket-ship TKT-005
 ```
+
+You can also delegate individual phases if you want Claude to handle some and another model to handle others (e.g., `/ticket-delegate TKT-005 implement` for implementation only). See [03-delegation.md](03-delegation.md).
 
 ## The paranoid lifecycle (with peer review)
 
@@ -251,6 +248,9 @@ updated: 2026-04-07
 
 ## Delegation Log
 {filled in by /ticket-delegate and /ticket-collect — audit trail of delegated phases}
+
+## Delegation Review
+{filled in by /ticket-collect for full-lifecycle delegations — Claude's code review of the other model's work}
 
 ## Peer Review (verify-investigate)
 ## Peer Review (verify-implement)
