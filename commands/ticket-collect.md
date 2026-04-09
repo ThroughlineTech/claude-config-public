@@ -26,6 +26,38 @@ Argument: `{ID}` (e.g. `TKT-005`)
 
 3. **Phase-specific verification** — confirm the executing agent actually wrote what the brief asked for:
 
+   ### `full` (no phase — full lifecycle delegation)
+
+   This is the most comprehensive collect. Claude acts as **code reviewer**, not just a checkbox verifier. The other model did the investigation and implementation — Claude reviews whether it meets the bar.
+
+   **Structural checks (must all pass or leave at `delegated`):**
+   - Investigation, Proposed Solution, and Implementation Plan sections are filled in
+   - Feature branch has new commits beyond main (`git log {branch} ^main --oneline`)
+   - Files Changed and Test Report sections are filled in
+
+   **Substantive review (Claude reads and judges):**
+
+   1. **Read the investigation.** Is the root cause / architectural fit analysis sound? Did the agent explore deeply enough or take shortcuts? Is the regression risk assessment reasonable?
+   2. **Read the full diff:** `git diff main...{branch}`. Review the actual code changes:
+      - Does the implementation match the acceptance criteria?
+      - Are there bugs, security issues, or logic errors?
+      - Does it follow project conventions (from `CLAUDE.md`)?
+      - Are edge cases handled?
+      - Is the code clean — no dead code, no debugging artifacts, no commented-out blocks?
+   3. **Review the tests.** Are they testing real behavior or just smoke tests? Do they cover the acceptance criteria? Are there obvious missing test cases?
+   4. **Check the Test Report.** Did all tests pass? Is the build clean?
+
+   **Write a `## Delegation Review` section** into the ticket with:
+   - **Verdict:** `approved` | `concerns` | `rejected`
+   - **Summary:** 2-3 sentences on the overall quality
+   - **Issues found:** numbered list (if any). Each issue: what's wrong, where (file:line), severity (blocking / should-fix / nit)
+   - **Missing:** anything the acceptance criteria required that isn't in the diff
+
+   **Transition logic:**
+   - `approved` (no blocking issues): transition to `review`, update Files Changed + Test Report if the agent's versions are incomplete
+   - `concerns` (non-blocking issues found): transition to `review` but flag the concerns prominently in the output. The user decides whether to fix before shipping.
+   - `rejected` (blocking issues — tests fail, acceptance criteria not met, security problem): leave at `delegated`. Report what needs fixing. The user can re-delegate or fix manually.
+
    ### `investigate`
    - Verify the ticket file's Investigation, Proposed Solution, and Implementation Plan sections are now filled in (non-empty, not just placeholder text)
    - If they're empty: report "investigation didn't return content; brief may not have been executed" and leave status as `delegated`

@@ -1,24 +1,27 @@
 ---
-description: 'TKT-XXX {phase} [target-phase] — delegate a phase to another agent'
-argument-hint: 'TKT-XXX {phase} [target-phase]'
+description: 'TKT-XXX [phase] — delegate to another agent (default: full lifecycle)'
+argument-hint: 'TKT-XXX [phase]'
 ---
 
-# Delegate a Ticket Phase to Another Agent
+# Delegate a Ticket to Another Agent
 
-Hand off a ticket phase to another agent (e.g. Gemini in Copilot Chat) by generating a self-contained brief markdown file. The brief is the contract: any agent that can read markdown and execute code can take it from here.
+Hand off a ticket (or a specific phase) to another agent (e.g. Gemini in Copilot Chat) by generating a self-contained brief markdown file. The brief is the contract: any agent that can read markdown and execute code can take it from here.
+
+**Default behavior (no phase):** delegate the full lifecycle — investigate, implement, commit — in one shot. The other model does everything its own way. Claude reviews the work on collect.
 
 ## Input
-Argument: `{ID} {phase} [target-phase]`
+Argument: `{ID} [phase] [target-phase]`
 
 **ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 Examples:
-- `/ticket-delegate TKT-005 investigate`
-- `/ticket-delegate TKT-005 implement`
-- `/ticket-delegate TKT-005 review`
-- `/ticket-delegate TKT-005 verify investigate`
-- `/ticket-delegate TKT-005 verify implement`
-- `/ticket-delegate TKT-005 verify review`
+- `/ticket-delegate TKT-005` — **full lifecycle** (investigate + implement + commit → Claude reviews on collect)
+- `/ticket-delegate TKT-005 investigate` — investigation only
+- `/ticket-delegate TKT-005 implement` — implementation only (investigation already done)
+- `/ticket-delegate TKT-005 review` — generate verification checklist only
+- `/ticket-delegate TKT-005 verify investigate` — peer-review an existing investigation
+- `/ticket-delegate TKT-005 verify implement` — peer-review an existing implementation
+- `/ticket-delegate TKT-005 verify review` — peer-review an existing review
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.
@@ -29,6 +32,7 @@ Examples:
 
 | Phase                | Required current status      | New status after delegate |
 |----------------------|------------------------------|---------------------------|
+| *(none — full)*      | `open`                       | `delegated` (also: branch is created here) |
 | `investigate`        | `open`                       | `delegated`               |
 | `implement`          | `proposed`                   | `delegated` (also: branch is created here) |
 | `review`             | `in-progress` or `delegated` (after implement collect) | `delegated` |
@@ -47,12 +51,13 @@ If the current status doesn't match, report it and stop.
    - The relevant brief template at `~/.claude/brief-templates/{phase}.md` (or `~/.claude/brief-templates/verify-{target-phase}.md` for verify phases)
 
 2. **Gather phase-specific context**:
+   - For `full` (no phase): list key source locations, context docs from ticket-config, relevant source dirs
    - For `investigate`: list relevant source dirs, prior tickets touching the same area
    - For `implement`: extract the Implementation Plan from the ticket; identify exactly which files will be touched; run `xcodebuild -list` / `npm scripts` / etc. to confirm commands
    - For `review`: get `git diff main...{branch} --stat` summary
    - For `verify {phase}`: extract the section the original phase wrote (Investigation, Files Changed + diff, Verification Checklist, etc.)
 
-3. **For `implement` only**: create the feature branch
+3. **For `full` or `implement`**: create the feature branch
    - Determine main branch
    - `git checkout main && git pull`
    - `git checkout -b ticket/{lowercased-id}-{slugified-title}`
@@ -74,6 +79,7 @@ If the current status doesn't match, report it and stop.
    - `{TARGET_PHASE}` — for verify briefs only
 
 5. **Write the brief** to `{tickets-dir}/{ID}.{phase-tag}.brief.md` where phase-tag is:
+   - `full` (no phase argument — full lifecycle)
    - `investigate`, `implement`, `review`
    - `verify-investigate`, `verify-implement`, `verify-review`
 
