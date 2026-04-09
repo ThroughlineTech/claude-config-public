@@ -45,8 +45,8 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-list` | "Where am I? What's in flight?" (active-only; `--all` includes terminals) |
 | `/ticket-investigate TKT-001` | Have Claude Code explore the codebase and write a plan |
 | `/ticket-approve TKT-001` | Branch + implement the plan (Claude Code does the work) |
-| `/ticket-delegate TKT-001 implement` | Hand the implementation to Gemini or another model via Copilot Chat |
-| `/ticket-collect TKT-001` | After a delegation returns, pull the work back into the Claude Code flow |
+| `/ticket-delegate TKT-001` | Delegate full lifecycle to another model (Gemini, etc.); batch: `/ticket-delegate 10 11 12 13` |
+| `/ticket-collect TKT-001` | Claude reviews delegated work; batch: `/ticket-collect 10 11 12 13` |
 | `/ticket-review TKT-001` | Generate a human verification checklist |
 | `/ticket-preview TKT-001` | Launch the ticket's feature branch locally (or on staging/simulator) without shipping |
 | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one prowl at end |

@@ -164,6 +164,36 @@ Next: /ticket-ship 5   (or fix the nits first)
 
 If Claude had found blocking issues (failing tests, missing acceptance criteria, security problems), the verdict would be `rejected` and the status would stay at `delegated` so you can re-delegate or fix manually.
 
+## Example: batch delegation (4 UI tickets to Gemini)
+
+You have a batch of UI tickets and want Gemini to handle them all:
+
+```bash
+/ticket-delegate 10 11 12 13
+```
+
+Claude asks: "Parallel (4 VS Code windows) or sequential (one at a time)?" You pick parallel.
+
+Claude creates 4 worktrees, generates 4 briefs, and writes an instruction file:
+
+```
+4 tickets delegated (full lifecycle, parallel)
+
+Instruction file: tickets/DELEGATE-BATCH-2026-04-09-1530.md
+
+Next steps:
+  Open the instruction file and follow it.
+  When all briefs are executed, run: /ticket-collect 10 11 12 13
+```
+
+You open the instruction file, follow it (open 4 VS Code windows, one per worktree, run a brief in each). When all 4 are done:
+
+```bash
+/ticket-collect 10 11 12 13
+```
+
+Claude reviews all 4 diffs, writes a Delegation Review per ticket, generates a consolidated review checklist, deploys to preview. You walk through the checklist, then ship the approved ones.
+
 ## Example: phase-specific delegation (implementation only)
 
 If Claude has already investigated and you just want another model to implement:

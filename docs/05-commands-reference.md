@@ -90,48 +90,50 @@ All commands live in `commands/` in the repo and are symlinked into `~/.claude/c
 
 **Side effects**: Creates a git branch, edits source files, creates commits. Does not push.
 
-## `/ticket-delegate TKT-NNN [phase] [target-phase]`
+## `/ticket-delegate TKT-NNN [...] [phase] [target-phase]`
 
-**Purpose**: Delegate a ticket to another agent. Default (no phase): full lifecycle.
+**Purpose**: Delegate one or more tickets to another agent. Default (no phase): full lifecycle. Supports batch.
 
 **Usage**:
-- `/ticket-delegate TKT-005` — **full lifecycle** (investigate + implement + commit; Claude reviews on collect)
-- `/ticket-delegate TKT-005 investigate` — investigation only
-- `/ticket-delegate TKT-005 implement` — implementation only
-- `/ticket-delegate TKT-005 review` — verification checklist only
+- `/ticket-delegate 5` — **full lifecycle, single ticket**
+- `/ticket-delegate 10 11 12 13` — **batch delegation** (full lifecycle for each; asks parallel vs. sequential)
+- `/ticket-delegate TKT-005 investigate` — investigation only (single ticket)
+- `/ticket-delegate TKT-005 implement` — implementation only (single ticket)
 - `/ticket-delegate TKT-005 verify investigate` — peer-review an investigation
-- `/ticket-delegate TKT-005 verify implement` — peer-review an implementation
-- `/ticket-delegate TKT-005 verify review` — peer-review a review
 
 **What it does**:
-- Verifies the ticket is in the right status for the requested phase
+- Verifies each ticket is in the right status for the requested phase
 - Reads the appropriate template from `~/.claude/brief-templates/{phase}.md` (or `full.md` for no-phase)
 - Fills in placeholders (ticket content, project rules from CLAUDE.md, test/build commands, relevant files)
-- Writes the brief to `tickets/TKT-NNN.{phase-tag}.brief.md`
-- For `full` or `implement`: also creates the feature branch
+- Writes briefs to `tickets/TKT-NNN.{phase-tag}.brief.md`
+- For `full` or `implement`: creates feature branches (and worktrees for parallel batch)
+- For batch: asks parallel vs. sequential, generates an instruction file (`DELEGATE-BATCH-*.md`) with run order
 - Transitions status to `delegated`, appends to Delegation Log section
 
 **Preconditions**: Phase-specific status requirement (see the command file for the matrix). Full lifecycle requires `open`.
 
-**Side effects**: Creates/overwrites a brief file. For full/implement, creates a git branch. Updates the ticket file.
+**Side effects**: Creates/overwrites brief files. For full/implement, creates git branches. For parallel batch, creates worktrees. Updates ticket files.
 
-## `/ticket-collect TKT-NNN`
+## `/ticket-collect TKT-NNN [...]`
 
-**Purpose**: Collect work returned from a delegated phase.
+**Purpose**: Collect and review work returned from delegated tickets. Supports batch.
 
-**Usage**: `/ticket-collect TKT-005` (after the executing agent has reported "Brief executed").
+**Usage**:
+- `/ticket-collect 5` — single ticket
+- `/ticket-collect 10 11 12 13` — batch: reviews all, generates consolidated checklist
 
 **What it does**:
-- Verifies ticket status is `delegated`
+- Verifies each ticket status is `delegated`
 - Reads the most recent Delegation Log entry to determine which phase was delegated
 - For `full` (default delegation): **Claude acts as code reviewer** — reads the investigation, reviews the full diff, checks test quality, verifies acceptance criteria. Writes a `## Delegation Review` section with verdict (`approved` / `concerns` / `rejected`)
+- For batch: reviews all tickets, generates a consolidated `CHAIN-REVIEW-*.md` checklist, deploys to preview/staging
 - For `implement`: reads the git diff on the feature branch, fills in Files Changed and Test Report
 - For `verify`: summarizes the Peer Review section and suggests next action
 - Transitions status to the appropriate next state (or stays `delegated` if review is `rejected`)
 
 **Preconditions**: Ticket status is `delegated`.
 
-**Side effects**: Updates the ticket file. Does not modify any source code.
+**Side effects**: Updates ticket files. For batch, generates a review checklist file. Does not modify any source code.
 
 ## `/ticket-status TKT-NNN`
 

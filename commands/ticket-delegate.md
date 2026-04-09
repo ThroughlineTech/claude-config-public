@@ -1,27 +1,32 @@
 ---
-description: 'TKT-XXX [phase] — delegate to another agent (default: full lifecycle)'
-argument-hint: 'TKT-XXX [phase]'
+description: 'TKT-XXX [...] [phase] — delegate to another agent (default: full lifecycle, supports batch)'
+argument-hint: 'TKT-XXX [...] [phase]'
 ---
 
-# Delegate a Ticket to Another Agent
+# Delegate Tickets to Another Agent
 
-Hand off a ticket (or a specific phase) to another agent (e.g. Gemini in Copilot Chat) by generating a self-contained brief markdown file. The brief is the contract: any agent that can read markdown and execute code can take it from here.
+Hand off one or more tickets to another agent (e.g. Gemini in Copilot Chat) by generating self-contained brief markdown files. The brief is the contract: any agent that can read markdown and execute code can take it from here.
 
 **Default behavior (no phase):** delegate the full lifecycle — investigate, implement, commit — in one shot. The other model does everything its own way. Claude reviews the work on collect.
 
-## Input
-Argument: `{ID} [phase] [target-phase]`
+**Batch delegation:** pass multiple IDs to delegate several tickets at once. Generates one brief per ticket, creates branches (and optionally worktrees for parallel execution), and writes an instruction file with the run order.
 
-**ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
+## Input
+Argument: `{ID} [...] [phase] [target-phase]`
+
+**ID shorthand:** If an ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`). Full IDs and bare numbers can be mixed freely.
 
 Examples:
-- `/ticket-delegate TKT-005` — **full lifecycle** (investigate + implement + commit → Claude reviews on collect)
-- `/ticket-delegate TKT-005 investigate` — investigation only
-- `/ticket-delegate TKT-005 implement` — implementation only (investigation already done)
+- `/ticket-delegate 5` — **full lifecycle, single ticket**
+- `/ticket-delegate 10 11 12 13` — **batch delegation** (full lifecycle for each)
+- `/ticket-delegate TKT-005 investigate` — investigation only (single ticket)
+- `/ticket-delegate TKT-005 implement` — implementation only (single ticket)
 - `/ticket-delegate TKT-005 review` — generate verification checklist only
 - `/ticket-delegate TKT-005 verify investigate` — peer-review an existing investigation
 - `/ticket-delegate TKT-005 verify implement` — peer-review an existing implementation
 - `/ticket-delegate TKT-005 verify review` — peer-review an existing review
+
+Phase-specific delegation only works with a single ticket ID. If multiple IDs are given without a phase, full lifecycle is assumed.
 
 ## Pre-flight Checks
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.
@@ -77,6 +82,8 @@ If the current status doesn't match, report it and stop.
    - `{DIFF_SUMMARY}` — for review and verify-implement phases
    - `{TICKETS_DIR}` — from ticket-config.md
    - `{TARGET_PHASE}` — for verify briefs only
+   - `{WORKTREE_NOTE}` — for parallel batch: ` (open the worktree at {path} first)`, empty for single/sequential
+   - `{WORKTREE_INFO}` — for parallel batch: `**Worktree:** \`.worktrees/ticket-{id}/\` — open this directory in VS Code`, empty for single/sequential
 
 5. **Write the brief** to `{tickets-dir}/{ID}.{phase-tag}.brief.md` where phase-tag is:
    - `full` (no phase argument — full lifecycle)
@@ -88,7 +95,7 @@ If the current status doesn't match, report it and stop.
    - Add a line to a new "## Delegation Log" section (create if missing) recording: timestamp, phase, brief filename. This log is how `/ticket-status` reconstructs the timeline.
    - Update `updated` date
 
-7. **Output the next-step instructions**:
+7. **Output the next-step instructions** (single ticket):
    ```
    {ID} delegated for {phase}{ if verify: " (target: {target-phase})"}
 
@@ -101,6 +108,101 @@ If the current status doesn't match, report it and stop.
    4. When the agent reports "Brief executed", come back to Claude Code and run:
       /ticket-collect {ID}
    ```
+
+## Batch Delegation (multiple IDs, full lifecycle)
+
+When multiple IDs are given without a phase argument:
+
+### Step 1: Ask execution mode
+
+Use AskUserQuestion to ask:
+
+```
+Delegating {N} tickets. How do you want to run them in Copilot?
+
+  1. Parallel — each ticket gets its own worktree + VS Code window (faster, more windows)
+  2. Sequential — one at a time, same window, new chat session between each (slower, simpler)
+```
+
+### Step 2: Create branches (and worktrees for parallel)
+
+For each ticket:
+1. Create the feature branch: `ticket/{lowercased-id}-{slugified-title}`
+2. Update the ticket's `branch` field
+3. **Parallel mode only:** create a worktree at `.worktrees/ticket-{lowercased-id}/`
+   - Ensure `.worktrees/` is in `.gitignore`
+
+### Step 3: Generate briefs
+
+For each ticket, fill in the `full.md` brief template as described in the single-ticket steps above.
+
+**Parallel mode:** each brief includes `{WORKTREE_PATH}` pointing to the ticket's worktree. The brief tells the agent: "Your working directory is `.worktrees/ticket-{lowercased-id}/`."
+
+**Sequential mode:** briefs use the main project directory. Each brief tells the agent to verify it's on the correct branch before starting.
+
+### Step 4: Generate the batch instruction file
+
+Write `{tickets-dir}/DELEGATE-BATCH-{YYYY-MM-DD-HHMM}.md`:
+
+**Parallel mode:**
+```markdown
+# Delegation Batch — {N} tickets (parallel)
+
+Each ticket has its own worktree. Open each path in a **separate VS Code window**,
+then run the brief in that window's Copilot Chat. They can all run simultaneously.
+
+1. [ ] {ID} "{title}"
+       Open: `code .worktrees/ticket-{lowercased-id}`
+       Run:  `/run-brief {tickets-dir}/{ID}.full.brief.md`
+
+2. [ ] {ID} "{title}"
+       ...
+
+When all are done, come back to Claude Code and run:
+  /ticket-collect {all IDs space-separated}
+```
+
+**Sequential mode:**
+```markdown
+# Delegation Batch — {N} tickets (sequential)
+
+Run each brief in a **new Copilot Chat session** (fresh context between each).
+Stay in the same VS Code window — the brief handles branch switching.
+
+1. [ ] {ID} "{title}"
+       Run: `/run-brief {tickets-dir}/{ID}.full.brief.md`
+       Wait for: "Brief executed"
+
+2. [ ] {ID} "{title}"
+       Start a NEW Copilot Chat session first!
+       Run: `/run-brief {tickets-dir}/{ID}.full.brief.md`
+       Wait for: "Brief executed"
+...
+
+When all are done, come back to Claude Code and run:
+  /ticket-collect {all IDs space-separated}
+```
+
+### Step 5: Update all ticket files
+
+For each ticket: set `status: delegated`, append to Delegation Log, update date.
+
+### Step 6: Output summary
+
+```
+{N} tickets delegated (full lifecycle, {parallel|sequential})
+
+Briefs written:
+  {tickets-dir}/{ID1}.full.brief.md
+  {tickets-dir}/{ID2}.full.brief.md
+  ...
+
+Instruction file: {tickets-dir}/DELEGATE-BATCH-{timestamp}.md
+
+Next steps:
+  Open the instruction file and follow it.
+  When all briefs are executed, run: /ticket-collect {all IDs}
+```
 
 ## Rules
 - The brief file is **self-contained**. Inline relevant `CLAUDE.md` rules, inline test/build commands, list specific files to read. The agent executing the brief should not need to hunt for context.

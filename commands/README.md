@@ -13,8 +13,8 @@ Each file is a Claude Code slash command definition. The filename (minus `.md`) 
 | `ticket-list.md` | `/ticket-list [--all]` | Show active tickets (pass `--all` for terminals too) |
 | `ticket-investigate.md` | `/ticket-investigate TKT-NNN` | Explore code, write a plan into the ticket |
 | `ticket-approve.md` | `/ticket-approve TKT-NNN` | Branch + implement the plan |
-| `ticket-delegate.md` | `/ticket-delegate TKT-NNN phase` | Hand a phase to another agent via a brief |
-| `ticket-collect.md` | `/ticket-collect TKT-NNN` | Collect work returned from a delegated phase |
+| `ticket-delegate.md` | `/ticket-delegate TKT-NNN [...]` | Delegate to another agent (default: full lifecycle, supports batch) |
+| `ticket-collect.md` | `/ticket-collect TKT-NNN [...]` | Claude reviews delegated work (supports batch + consolidated checklist) |
 | `ticket-status.md` | `/ticket-status [TKT-NNN]` | Show the lifecycle timeline of a ticket |
 | `ticket-review.md` | `/ticket-review TKT-NNN` | Generate a human verification checklist |
 | `ticket-preview.md` | `/ticket-preview TKT-NNN` | Launch the ticket's branch locally without shipping |
