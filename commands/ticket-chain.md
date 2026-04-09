@@ -14,7 +14,10 @@ This is the "queue up work and walk away" workflow. One prowl when the whole cha
 Arguments: a list of ticket IDs, OR no arguments.
 
 - `/ticket-chain TKT-026 TKT-027 TKT-028` — operate on exactly these tickets, in this order
+- `/ticket-chain 26 27 28` — same thing (bare numbers are expanded; see ID shorthand below)
 - `/ticket-chain` — operate on **every** ticket in the active set whose status is `open`, in ID order
+
+**ID shorthand:** Any argument that is a bare number (e.g., `26` or `3`) is resolved to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`). Full IDs and bare numbers can be mixed freely.
 
 Optional flags:
 - `--dry-run` — investigate all tickets but stop before approving any. Useful for reviewing plans before committing to implementation.

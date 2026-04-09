@@ -1,9 +1,16 @@
+---
+description: '[TKT-XXX] — show ticket lifecycle timeline (no arg = active set)'
+argument-hint: '[TKT-XXX]'
+---
+
 # Show a Ticket's Lifecycle Timeline
 
 Render a human-readable timeline of everything that's happened to a ticket. Useful when you come back to a project after time away and need to remember what state things are in.
 
 ## Input
 Argument: `{ID}` (e.g. `TKT-005`)
+
+**ID shorthand:** If the argument is a bare number (e.g., `5` or `26`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `5` → `TKT-005`).
 
 If no argument given: show a one-line summary for every ticket in the **active set** — i.e., files directly under `{tickets-dir}/` only. Do NOT recurse into `shipped/`, `deferred/`, or `wontfix/`.
 

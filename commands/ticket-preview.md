@@ -1,3 +1,8 @@
+---
+description: 'TKT-XXX — launch a ticket preview without shipping'
+argument-hint: 'TKT-XXX'
+---
+
 # Preview a Ticket
 
 Build and launch an inspectable version of a ticket's feature branch **without** merging to main. This is how you smoke-test before shipping: localhost, staging, simulator, whatever the project defines as "preview."
@@ -5,6 +10,8 @@ Build and launch an inspectable version of a ticket's feature branch **without**
 ## Input
 
 Argument: `{ID}` (e.g. `TKT-014`)
+
+**ID shorthand:** If the argument is a bare number (e.g., `14` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `14` → `TKT-014`).
 
 ## Pre-flight Checks
 
@@ -50,9 +57,11 @@ Argument: `{ID}` (e.g. `TKT-014`)
      (One component per line. `pid` is `-` for `command-exit` components that don't leave a persistent process.)
    - Write a sidecar `.worktrees/ticket-{lowercased-id}/.preview.meta` recording: profile name, list of components + commands + URLs, started_at, branch. Used by `/ticket-cleanup` and `/ticket-status` to explain what's running.
 
-5. **Notify the user** via the push-notification channel configured in `~/.claude/CLAUDE.md` (Prowl, Pushover, ntfy.sh, Slack webhook, etc. — whatever the user has set up). Skip silently if no channel is configured.
-   - Title: `{ID} preview ready`
-   - Body: compact summary of URLs/instructions. Single atomic: `http://localhost:3014`. Compound: `API :3014, Web :4014 — open http://localhost:4014 to test`. iOS: `simulator: {bundle-id} launched`. Compound with iOS: `Host running; iOS companion launched`.
+5. **Prowl the user**:
+   - Application: `Claude Code: ticket-preview`
+   - Event: `{ID} preview ready`
+   - Description: compact summary of URLs/instructions. Single atomic: `http://localhost:3014`. Compound: `API :3014, Web :4014 — open http://localhost:4014 to test`. iOS: `simulator: {bundle-id} launched`. Compound with iOS: `Host running; simulator: RemoteDeployCompanion launched`.
+   - Priority: 0 (normal).
 
 ## Finish
 

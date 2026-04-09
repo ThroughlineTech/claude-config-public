@@ -1,3 +1,8 @@
+---
+description: 'TKT-XXX {reason...} — close a ticket as wontfix'
+argument-hint: 'TKT-XXX {reason...}'
+---
+
 # Close a Ticket (wontfix)
 
 Move an active ticket to the `wontfix/` subfolder. "Close" means "done thinking about this — it won't be done": duplicate, invalid, obsolete, rejected, superseded. Unlike `/ticket-defer`, closed tickets are not expected to come back. (They still can via `/ticket-reopen` if a regression forces it.)
@@ -5,6 +10,8 @@ Move an active ticket to the `wontfix/` subfolder. "Close" means "done thinking 
 ## Input
 
 Arguments: `{ID} {reason...}`
+
+**ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 The reason is REQUIRED. Everything after the ID is treated as the reason text. The reason may be given in **any language** (e.g. Danish). Before writing it into the ticket, **translate it to clear, concise English**.
 

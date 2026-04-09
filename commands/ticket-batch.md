@@ -1,13 +1,21 @@
+---
+description: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview] — run multiple tickets in parallel worktrees'
+argument-hint: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]'
+---
+
 # Batch a Set of Tickets
 
-Run investigate → auto-approve → implement → preview on multiple tickets in parallel, each in its own git worktree. Notify the user once when the whole batch is ready (via the push-notification channel configured in `~/.claude/CLAUDE.md`, if any). This is the workflow for queuing up work and coming back later to smoke-test everything at once.
+Run investigate → auto-approve → implement → preview on multiple tickets in parallel, each in its own git worktree. Prowl the user once when the whole batch is ready. This is the workflow for queuing up work and coming back later to smoke-test everything at once.
 
 ## Input
 
 Arguments: a list of ticket IDs, OR no arguments.
 
 - `/ticket-batch TKT-014 TKT-015 TKT-016` — operate on exactly these tickets
+- `/ticket-batch 14 15 16` — same thing (bare numbers are expanded; see ID shorthand below)
 - `/ticket-batch` — operate on **every** ticket in the active set whose status is `open` (i.e. "do all queued work")
+
+**ID shorthand:** Any argument that is a bare number (e.g., `14` or `3`) is resolved to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `14` → `TKT-014`). Full IDs and bare numbers can be mixed freely.
 
 Optional flags:
 - `--mode=auto|rollup|individual` — override the project's `Preview mode`. Default: whatever `.claude/ticket-config.md` says.
@@ -131,9 +139,9 @@ For each `review`-status ticket in the batch, launch a preview exactly as `/tick
 
 Try `rollup` first. On any merge conflict, fall back to `individual` as described above.
 
-## Phase 7: Final notification + report
+## Phase 7: Final prowl + report
 
-**One** push notification at the end of the batch — never per-ticket. Use the push-notification channel configured in `~/.claude/CLAUDE.md`; skip silently if none is configured.
+**One** prowl at the end of the batch — never per-ticket.
 
 - Application: `Claude Code: ticket-batch`
 - Event: `Batch ready — {N} tickets`
@@ -186,7 +194,7 @@ Next:
 - **Parallelism via subagents, not serialism.** Spawn all implementation agents in a single message with multiple Agent tool calls. The main thread only orchestrates. This keeps the main context small and lets real parallelism happen on build/test I/O.
 - **High regression risk is a hard manual gate.** If an investigation writes `Regression Risk: high`, the batch must NOT auto-implement that ticket. It pauses at `proposed` and the final report calls it out.
 - **Conflict checks never block.** They annotate. You decide.
-- **One notification.** Never per-ticket.
+- **One prowl.** Never per-ticket.
 - **Never ship from batch mode.** Batch ends at preview. Shipping remains an explicit per-ticket decision (`/ticket-ship`).
 - **Worktree cleanup happens on terminal transitions, not on batch end.** When you later run `/ticket-ship TKT-014`, that command tears down the TKT-014 worktree and preview as a side effect. Same for `/ticket-defer` and `/ticket-close`. So the batch leaves worktrees + previews live; they get reaped as you decide each ticket's fate.
 - **If `/ticket-defer` or `/ticket-close` runs while a rollup preview is live**, that command must also rebuild the rollup (merge the remaining successful tickets into a new scratch branch, relaunch the preview). This is the "dynamic rollup" behavior.

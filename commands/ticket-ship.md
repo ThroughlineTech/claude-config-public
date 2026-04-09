@@ -1,9 +1,16 @@
+---
+description: 'TKT-XXX — rebase, test, merge, archive (and deploy)'
+argument-hint: 'TKT-XXX'
+---
+
 # Ship a Ticket
 
 You are merging an approved ticket to main and (optionally) deploying.
 
 ## Input
 The argument is a ticket ID (e.g., TKT-001).
+
+**ID shorthand:** If the argument is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 **Locate the ticket file:** it must be at `{tickets-dir}/{ID}.md` (active set). If it lives in `shipped/`, `deferred/`, or `wontfix/`, STOP — a terminal ticket cannot be shipped again. (Use `/ticket-reopen {ID}` if this is an intentional re-ship.)
 

@@ -1,3 +1,8 @@
+---
+description: 'TKT-XXX {reason...} — park a ticket in deferred/ with a reason'
+argument-hint: 'TKT-XXX {reason...}'
+---
+
 # Defer a Ticket
 
 Move an active ticket to the `deferred/` subfolder. Deferred means "investigated or considered, not now, may revisit later." The ticket is preserved with a reason so future-you knows why it was parked.
@@ -5,6 +10,8 @@ Move an active ticket to the `deferred/` subfolder. Deferred means "investigated
 ## Input
 
 Arguments: `{ID} {reason...}`
+
+**ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 The reason is REQUIRED. Everything after the ID is treated as the reason text. The reason may be given in **any language** (e.g. Danish). Before writing it into the ticket, **translate it to clear, concise English**.
 

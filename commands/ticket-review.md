@@ -1,9 +1,16 @@
+---
+description: 'TKT-XXX — generate a human verification checklist'
+argument-hint: 'TKT-XXX'
+---
+
 # Review a Ticket
 
 You are presenting a completed ticket implementation for human review. Generate a verification checklist that the user can follow to confirm the work is done correctly.
 
 ## Input
 The argument is a ticket ID (e.g., TKT-001).
+
+**ID shorthand:** If the argument is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 **Locate the ticket file:** at `{tickets-dir}/{ID}.md`. If the ticket is in a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`), STOP and tell the user to run `/ticket-reopen {ID}` first.
 

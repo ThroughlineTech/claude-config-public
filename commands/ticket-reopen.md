@@ -1,3 +1,8 @@
+---
+description: 'TKT-XXX [reason...] — bring a terminal ticket back to active'
+argument-hint: 'TKT-XXX [reason...]'
+---
+
 # Reopen a Ticket
 
 Bring a ticket out of a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`) back into the active set. Use this when a shipped change regressed, a deferred ticket's moment has come, or a closed ticket turned out to be real after all.
@@ -5,6 +10,8 @@ Bring a ticket out of a terminal subfolder (`shipped/`, `deferred/`, `wontfix/`)
 ## Input
 
 Arguments: `{ID} [reason...]`
+
+**ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 The reason is optional but **strongly recommended** — especially when reopening from `shipped/` (which almost always means a regression). The reason may be given in **any language**; translate to English before writing.
 

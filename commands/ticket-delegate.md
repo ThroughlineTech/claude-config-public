@@ -1,9 +1,16 @@
+---
+description: 'TKT-XXX {phase} [target-phase] — delegate a phase to another agent'
+argument-hint: 'TKT-XXX {phase} [target-phase]'
+---
+
 # Delegate a Ticket Phase to Another Agent
 
 Hand off a ticket phase to another agent (e.g. Gemini in Copilot Chat) by generating a self-contained brief markdown file. The brief is the contract: any agent that can read markdown and execute code can take it from here.
 
 ## Input
 Argument: `{ID} {phase} [target-phase]`
+
+**ID shorthand:** If the ID is a bare number (e.g., `26` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `26` → `TKT-026`).
 
 Examples:
 - `/ticket-delegate TKT-005 investigate`

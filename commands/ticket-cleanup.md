@@ -1,3 +1,8 @@
+---
+description: '[TKT-XXX | --all] — reap stale worktrees and preview processes'
+argument-hint: '[TKT-XXX | --all]'
+---
+
 # Reap Stale Worktrees and Previews
 
 The safety-net cleanup command. Removes worktrees and kills preview processes for tickets that no longer need them — because they shipped, were closed, deferred, or the ticket file was deleted entirely. Also used to explicitly tear down a single ticket's preview.
@@ -10,6 +15,8 @@ One of:
 - `/ticket-cleanup {ID}` — tear down the worktree and preview for this specific ticket (regardless of its current status)
 - `/ticket-cleanup --all` — reap every worktree + preview in the project (nuclear option — stops everything)
 - `/ticket-cleanup` (no args) — reap **stale** worktrees only: tickets that are in a terminal folder or don't exist. Active tickets are left alone.
+
+**ID shorthand:** If the ID is a bare number (e.g., `14` or `3`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine the zero-padding width, and expand (e.g., `14` → `TKT-014`).
 
 ## Pre-flight
 
