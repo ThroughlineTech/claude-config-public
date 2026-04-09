@@ -19,13 +19,14 @@ Each file is a Claude Code slash command definition. The filename (minus `.md`) 
 | `ticket-review.md` | `/ticket-review TKT-NNN` | Generate a human verification checklist |
 | `ticket-preview.md` | `/ticket-preview TKT-NNN` | Launch the ticket's branch locally without shipping |
 | `ticket-batch.md` | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees |
+| `ticket-chain.md` | `/ticket-chain [IDs...]` | Investigate, approve, and ship tickets sequentially |
 | `ticket-ship.md` | `/ticket-ship TKT-NNN` | Rebase, test, merge, deploy; archive to `tickets/shipped/` |
 | `ticket-defer.md` | `/ticket-defer TKT-NNN {reason}` | Park a ticket in `tickets/deferred/` |
 | `ticket-close.md` | `/ticket-close TKT-NNN {reason}` | Close as wontfix → `tickets/wontfix/` |
 | `ticket-reopen.md` | `/ticket-reopen TKT-NNN` | Bring a terminal ticket back to active |
 | `ticket-cleanup.md` | `/ticket-cleanup [ID\|--all]` | Reap stale worktrees + preview processes |
 
-**Short aliases** are generated on each machine by `install.sh` from [`aliases.map`](aliases.map) — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. The generated wrapper `.md` files are gitignored (they're real files, not symlinks — the harness dedupes symlinked commands to a single entry).
+**Short aliases** are generated on each machine by `install.sh` from [`aliases.map`](aliases.map) — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tch`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. The generated wrapper `.md` files are gitignored (they're real files, not symlinks — the harness dedupes symlinked commands to a single entry).
 
 ## Editing a command
 

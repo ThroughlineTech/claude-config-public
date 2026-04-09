@@ -6,6 +6,7 @@ All notable changes to `claude-config`. Format loosely follows [Keep a Changelog
 
 ### Added
 
+- **`/ticket-chain`** — sequential investigate → approve → ship pipeline. Unlike `/ticket-batch` (parallel worktrees, stops at preview), chain mode processes tickets one at a time, shipping each to main before starting the next. Auto-approves unless `Regression Risk: high`. Failures stop the chain (since later tickets may depend on earlier ones). `--dry-run` flag investigates all tickets without implementing. Alias: `/tch`.
 - **Command frontmatter** restored — every `/ticket-*` command has `description` and `argument-hint` fields so the slash-command picker shows what the command does and the expected arguments inline.
 - **Short aliases via real-file wrappers** — `install.sh` generates gitignored real `.md` wrapper files from `aliases.map` instead of symlinks. The Claude Code harness dedupes symlinked commands to a single entry, hiding either the alias or the canonical — real files avoid this.
 

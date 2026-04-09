@@ -1,0 +1,31 @@
+# Slash command aliases for the ticket workflow.
+# Format: {alias} {target} — one pair per line, whitespace-separated.
+# Lines starting with # and blank lines are ignored.
+#
+# install.sh reads this file and generates a REAL .md file in commands/ for
+# each alias (e.g. tb.md). The generated file is a thin wrapper that delegates
+# to the canonical command. Generated alias files are gitignored so they
+# exist on each machine without polluting the repo.
+#
+# Why real files and not symlinks? The Claude Code harness dedupes by symlink
+# target, so a symlink alias would silently hide either the alias or the
+# canonical command from the slash command picker (whichever sorted later).
+# Real files don't dedupe.
+#
+# To add a new alias: add a line here, commit, push, pull on other machines,
+# re-run bash install.sh.
+
+tn  ticket-new
+tl  ticket-list
+ts  ticket-status
+ti  ticket-investigate
+ta  ticket-approve
+tr  ticket-review
+tp  ticket-preview
+tb  ticket-batch
+tsh ticket-ship
+td  ticket-defer
+tc  ticket-close
+tro ticket-reopen
+tch ticket-chain
+tcl ticket-cleanup

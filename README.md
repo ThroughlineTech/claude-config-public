@@ -50,6 +50,7 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-review TKT-001` | Generate a human verification checklist |
 | `/ticket-preview TKT-001` | Launch the ticket's feature branch locally (or on staging/simulator) without shipping |
 | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one notification at end |
+| `/ticket-chain [IDs...]` | Investigate, approve, and ship tickets sequentially; one notification at end |
 | `/ticket-ship TKT-001` | Rebase, run tests, merge, (optionally) deploy; archives to `tickets/shipped/` |
 | `/ticket-defer TKT-001 {reason}` | Park a ticket in `tickets/deferred/` with a reason (any language, translated to English) |
 | `/ticket-close TKT-001 {reason}` | Close as wontfix (duplicate, invalid, obsolete) → `tickets/wontfix/` |
@@ -57,7 +58,7 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-cleanup [ID\|--all]` | Reap stale worktrees + preview processes; also runs ambiently as preflight |
 | `/ticket-status TKT-001` | "What happened to this ticket? What's the next step?" |
 
-**Short aliases** are available for every command — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. Defined in [commands/aliases.map](commands/aliases.map); install.sh generates per-machine wrapper `.md` files from the map (gitignored, real files not symlinks — the harness dedupes symlinked commands).
+**Short aliases** are available for every command — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tch`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. Defined in [commands/aliases.map](commands/aliases.map); install.sh generates per-machine wrapper `.md` files from the map (gitignored, real files not symlinks — the harness dedupes symlinked commands).
 
 See **[docs/02-ticket-workflow.md](docs/02-ticket-workflow.md)** for the full lifecycle and examples, or **[docs/05-commands-reference.md](docs/05-commands-reference.md)** for a terse one-section-per-command reference.
 
@@ -89,7 +90,7 @@ claude-config/
     README.md
     ticket-install.md  ticket-new.md  ticket-list.md  ticket-status.md
     ticket-investigate.md  ticket-approve.md  ticket-review.md
-    ticket-preview.md  ticket-batch.md  ticket-ship.md
+    ticket-preview.md  ticket-batch.md  ticket-chain.md  ticket-ship.md
     ticket-defer.md  ticket-close.md  ticket-reopen.md  ticket-cleanup.md
     ticket-delegate.md  ticket-collect.md
 
