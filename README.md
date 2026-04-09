@@ -50,7 +50,7 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-review TKT-001` | Generate a human verification checklist |
 | `/ticket-preview TKT-001` | Launch the ticket's feature branch locally (or on staging/simulator) without shipping |
 | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one notification at end |
-| `/ticket-chain [IDs...]` | Investigate, approve, and ship tickets sequentially; one notification at end |
+| `/ticket-chain [IDs...]` | Smart: parallel investigate, detect dependencies, wave execute, ship; one notification at end |
 | `/ticket-ship TKT-001` | Rebase, run tests, merge, (optionally) deploy; archives to `tickets/shipped/` |
 | `/ticket-defer TKT-001 {reason}` | Park a ticket in `tickets/deferred/` with a reason (any language, translated to English) |
 | `/ticket-close TKT-001 {reason}` | Close as wontfix (duplicate, invalid, obsolete) → `tickets/wontfix/` |

@@ -7,6 +7,8 @@ argument-hint: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview]'
 
 Run investigate → auto-approve → implement → preview on multiple tickets in parallel, each in its own git worktree. Prowl the user once when the whole batch is ready. This is the workflow for queuing up work and coming back later to smoke-test everything at once.
 
+> **Prefer `/ticket-chain`** for most use cases. Chain mode does everything batch does (parallel investigation, parallel implementation in worktrees) but also detects dependencies, computes execution waves, and ships automatically. Use `/ticket-batch` when you specifically want preview infrastructure (rollup/individual previews) without shipping, or when the project requires manual review of every ticket before any shipping happens.
+
 ## Input
 
 Arguments: a list of ticket IDs, OR no arguments.
