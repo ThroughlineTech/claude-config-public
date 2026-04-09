@@ -85,10 +85,20 @@ If `--dry-run` was passed, print the dependency graph and wave plan (see Phase 2
 
 For each ticket remaining in the chain, read two things:
 
-1. **Declared dependencies** from the `## Dependencies` section — the ticket IDs the investigator explicitly listed.
-2. **File overlap heuristic** — extract all file paths from each ticket's `## Implementation Plan`. For each pair of tickets, if their file sets intersect, treat the one that appears *later* in the user's original argument order as depending on the *earlier* one. This is the conservative/overdetection heuristic: overlapping files → dependency, user order = tiebreaker for direction.
+1. **Declared dependencies** from the `## Dependencies` section — the ticket IDs the investigator explicitly listed. These are semantic dependencies where the investigator determined that one ticket's work genuinely builds on another's. **Declared dependencies are always respected.**
+2. **File overlap heuristic** — extract all file paths from each ticket's `## Implementation Plan`. Count how many tickets in the batch touch each file. Apply the **hub-file threshold**:
+   - **File touched by 1–2 tickets**: treat overlap as a dependency. The ticket appearing *later* in the user's original argument order depends on the *earlier* one.
+   - **File touched by 3+ tickets**: this is a **hub file** (a router, handler registry, config, shared component). Do NOT create dependency edges from this file. Instead, record it as a **conflict note** in the final report (same as `/ticket-batch` does). Hub files are too central to serialize everything around — the investigator's declared dependencies are the right signal for these.
 
-Merge both sources. The final dependency set for each ticket is the union of declared + heuristic dependencies.
+Merge both sources. The final dependency set for each ticket is: declared dependencies ∪ heuristic dependencies (from non-hub files only).
+
+Print hub files if any were detected:
+
+```
+Hub files (touched by 3+ tickets — overlap noted, not treated as dependency):
+  handlers.go     (8 tickets)
+  Dashboard.tsx   (3 tickets)
+```
 
 ### Detect and resolve cycles
 
@@ -108,14 +118,23 @@ Print the execution plan:
 ```
 CHAIN PLAN — {N} tickets ({W} waves)
 
-Dependency graph:
-  TKT-003 depends on TKT-002 (extends auth middleware created by 002)
-  TKT-007 depends on TKT-006 (consumes API endpoint added by 006)
-  TKT-002 ↔ TKT-003 (cycle resolved: 002 before 003 per user order)
+Hub files (touched by 3+ tickets — noted, not treated as dependencies):
+  handlers.go     (8 tickets)
+  Dashboard.tsx   (3 tickets)
+
+Dependency graph (declared + non-hub file overlap):
+  TKT-003 depends on TKT-002 (extends auth middleware created by 002)  [declared]
+  TKT-007 depends on TKT-006 (consumes API endpoint added by 006)  [declared]
+  TKT-004 depends on TKT-003 (both touch scanner.go, scanner_test.go)  [file overlap]
 
 Execution plan:
-  Wave 1 (parallel): TKT-001, TKT-002, TKT-004, TKT-005, TKT-006
-  Wave 2 (parallel): TKT-003, TKT-007  [will re-investigate after wave 1 ships]
+  Wave 1 (parallel): TKT-001, TKT-002, TKT-005, TKT-006, TKT-008, TKT-009
+  Wave 2 (parallel): TKT-003, TKT-007  [re-investigate after wave 1]
+  Wave 3: TKT-004  [re-investigate after wave 2]
+
+Hub file conflict notes (review at ship time — merge order may matter):
+  handlers.go: TKT-001, TKT-002, TKT-003, TKT-004, TKT-005, TKT-006, TKT-008, TKT-009
+  Dashboard.tsx: TKT-001, TKT-002, TKT-007
 
 Proceeding...
 ```
@@ -259,6 +278,10 @@ Failed:
 Skipped (dependency failed):
   (none in this run)
 
+Hub file conflicts (multiple tickets touched these — review merge order):
+  handlers.go: TKT-001, TKT-002, TKT-003, TKT-005, TKT-006, TKT-008, TKT-009
+  Dashboard.tsx: TKT-001, TKT-002, TKT-007
+
 Next:
   Inspect failures:   cd .worktrees/ticket-tkt-004 && git log --oneline
   Retry a ticket:     /tch 4
@@ -298,7 +321,8 @@ This is the old `/ticket-chain` behavior. Use it when:
 
 ## Rules
 
-- **Bias toward overdetection of dependencies.** A false dependency costs time (ticket gets sequenced instead of parallelized). A missed dependency risks shipping broken code. Investigation prompts explicitly instruct agents to err on the side of declaring dependencies. The file-overlap heuristic adds a second layer of conservative detection on top.
+- **Bias toward overdetection of dependencies.** A false dependency costs time (ticket gets sequenced instead of parallelized). A missed dependency risks shipping broken code. Investigation prompts explicitly instruct agents to err on the side of declaring dependencies. The file-overlap heuristic adds a second layer of conservative detection on top — but with the hub-file threshold so that central files (touched by 3+ tickets) don't serialize the entire batch.
+- **Hub-file threshold: 3+ tickets.** If a file appears in 3 or more tickets' implementation plans, it's a hub file — too central to use as a dependency signal. It gets reported as a conflict note instead. The investigator's declared `## Dependencies` are the right signal for hub files, because they capture *semantic* dependency ("I need the endpoint TKT-006 creates") rather than *incidental* overlap ("we both add a route to handlers.go"). The threshold of 3 is intentionally low; even at 3 you're likely looking at a shared registry or config rather than a genuine sequential dependency chain.
 - **Cycles are resolved, never rejected.** User argument order is the tiebreaker. The system always produces a valid execution plan.
 - **High regression risk removes the ticket from the chain, doesn't stop it.** Unlike `--sequential` mode where high risk halts everything, smart mode can safely skip a risky ticket because other tickets in the wave are independent. The risky ticket is reported for manual review.
 - **Failures within a wave don't stop other tickets in that wave** (they're independent by construction). But failures **do** cascade: if TKT-002 fails, anything in later waves that depends on TKT-002 is skipped.
