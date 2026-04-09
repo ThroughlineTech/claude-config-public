@@ -1,11 +1,11 @@
 ---
-description: '[TKT-XXX ...] [--dry-run|--sequential|--no-ship] — smart investigate + implement + ship with dependency detection'
-argument-hint: '[TKT-XXX ...] [--dry-run|--sequential|--no-ship]'
+description: '[TKT-XXX ...] [--dry-run|--sequential|--ship] — smart investigate + implement + preview + review checklist'
+argument-hint: '[TKT-XXX ...] [--dry-run|--sequential|--ship]'
 ---
 
-# Chain Tickets: Smart Parallel Investigation → Wave Execution → Ship
+# Chain Tickets: Smart Parallel Investigation → Wave Execution → Preview → Review Checklist
 
-The "queue up work and walk away" command. Investigates all tickets in parallel, detects dependencies between them, computes execution waves, implements independent tickets in parallel worktrees within each wave, ships sequentially, then re-investigates dependent tickets against the updated codebase before starting the next wave. One prowl when done.
+The "queue up work and walk away" command. Investigates all tickets in parallel, detects dependencies between them, computes execution waves, implements independent tickets in parallel worktrees within each wave. **By default, deploys to preview/staging and generates a consolidated review checklist** — then prowls you. You walk through the checklist against the live preview, and explicitly ship when satisfied.
 
 This subsumes both the old sequential chain and parallel batch workflows. Independent tickets get parallelized automatically; dependent tickets get sequenced automatically. You don't have to think about it.
 
@@ -21,8 +21,8 @@ Arguments: a list of ticket IDs, OR no arguments.
 
 Optional flags:
 - `--dry-run` — investigate all tickets in parallel, show the dependency graph + wave plan, stop. No implementation, no shipping. Useful for reviewing plans and the execution strategy before committing.
-- `--sequential` — force strict sequential processing (no parallelism). Each ticket is investigated, implemented, and shipped one at a time in the order given. This is the escape hatch when you don't trust dependency detection or want maximum predictability.
-- `--no-ship` — investigate + implement in waves but stop before shipping. Leaves all tickets at `review` status with branches ready. Useful for review-heavy projects where you want to inspect everything before any merges.
+- `--sequential` — force strict sequential processing (no parallelism). Each ticket is investigated, implemented, and deployed to preview one at a time in the order given. Still stops for review checklist unless `--ship` is also passed.
+- `--ship` — **auto-ship after implementation.** Skip the review checklist and deploy-to-preview step; merge to main immediately after successful implementation + tests. This is fire-and-forget mode. Use when you trust the work and don't need to inspect it.
 
 ## Pre-flight Checks
 
@@ -206,9 +206,9 @@ Collect results. Track successes, failures.
 
 Copy updated ticket files back to main. Stage and commit: `ticket-chain: implement {N} tickets (wave {W})`.
 
-### Step D: Ship (sequential within wave)
+### Step D: Ship (sequential within wave) — `--ship` only
 
-If `--no-ship` was passed, skip this step for all waves.
+**This step only runs if `--ship` was passed.** By default, the chain stops after implementation and proceeds to Phase 4 (preview + checklist).
 
 For each successfully implemented ticket in this wave, **in ID order**:
 
@@ -232,76 +232,164 @@ Print progress after each ship:
 
 ### Between waves
 
-After all tickets in a wave are shipped (or failed), print a wave summary:
+After all tickets in a wave are implemented (and shipped, if `--ship`), print a wave summary:
 
 ```
-Wave 1 complete: 4/5 shipped, 1 failed (TKT-004: tests failed after merge)
+Wave 1 complete: 5/5 implemented, ready for review
 Starting wave 2 (2 tickets, re-investigating against updated codebase)...
 ```
 
-Pull latest main and proceed to the next wave.
+For `--ship` mode: pull latest main and proceed to the next wave. Failed tickets cascade to dependents.
+
+For default mode: all waves must complete implementation before Phase 4 runs. Between waves, the chain still needs to ship each wave's tickets to main before the next wave can re-investigate (since later waves depend on earlier ones). In default mode, the chain **merges to main but does not deploy** between waves — this is the minimum needed for wave dependencies to work. The preview/staging deploy happens once, after all waves complete, so the user sees the final state.
 
 **If a failed ticket in wave N has dependents in wave N+1:** remove the dependents from the chain. They can't proceed because their dependency didn't ship. Add them to the report as "skipped — dependency TKT-XXX failed."
 
-## Phase 4: Final report + prowl
+## Phase 4: Preview + review checklist (default mode)
+
+**Skip this entire phase if `--ship` was passed** — go directly to Phase 5.
+
+After all waves complete implementation successfully:
+
+### Step A: Deploy to preview/staging
+
+Read the Preview/Deploy configuration from `.claude/ticket-config.md`. Deploy the current state of main (which includes all successfully implemented tickets) to whatever preview environment is configured:
+
+- **Local app** (e.g., Go binary, Node server): run the preview/dev command, note the port
+- **Cloudflare Worker / Vercel / Netlify**: push to staging or run `npm run dev` / `wrangler dev`
+- **iOS/macOS**: build and launch in simulator
+- **No preview configured**: skip this step, just generate the checklist
+
+If previewing a rollup of all branches (multi-wave chains where tickets haven't been merged to main yet), create a scratch branch merging all successful ticket branches, deploy from that.
+
+### Step B: Generate review checklist
+
+Create a single consolidated markdown file at `{tickets-dir}/CHAIN-REVIEW-{YYYY-MM-DD-HHMM}.md`:
+
+```markdown
+# Chain Review — {date}
+
+{N} tickets implemented, ready for verification.
+
+Preview: {URL or "run `{command}` to start" or "localhost:{port}" or "no preview configured"}
+
+## How to use this checklist
+
+Walk through each ticket below. Check each item as you verify it.
+When done, run `/tch --ship` to ship all approved tickets, or `/tsh {ID}` to ship individually.
+To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
+
+---
+
+## TKT-001: {title}
+
+**Branch:** `ticket/tkt-001-...`
+**Files changed:** {count} | **Tests added:** {count} | **Risk:** {low/medium}
+
+### What changed
+{brief summary from the Implementation Plan — 2-3 sentences}
+
+### Acceptance Criteria
+{copied from ticket}
+
+### Verification Steps
+- [ ] {specific step 1 — what to do, what to expect}
+- [ ] {specific step 2}
+- [ ] {etc.}
+
+### Edge Cases
+- [ ] {edge case check}
+
+### Regression Checks
+- [ ] {existing feature still works}
+
+---
+
+## TKT-002: {title}
+...
+
+---
+
+## Summary
+
+| Ticket | Title | Risk | Files | Tests | Verdict |
+|--------|-------|------|-------|-------|---------|
+| TKT-001 | ... | low | 3 | 5 | ☐ |
+| TKT-002 | ... | medium | 7 | 12 | ☐ |
+...
+
+**When ready:** `/tch --ship` to ship all, or `/tsh {ID}` for individual tickets.
+**To defer:** `/td {ID} {reason}`
+**To clean up:** `/tcl --all`
+```
+
+The verification steps should be **specific and observable** — "navigate to /settings, click 'Change Password', enter mismatched passwords, expect error message 'Passwords do not match'" not "test the password feature."
+
+### Step C: Commit the checklist
+
+Stage and commit the checklist file: `ticket-chain: review checklist for {N} tickets`
+
+## Phase 5: Final report + prowl
 
 ```
-CHAIN COMPLETE
+CHAIN READY FOR REVIEW
 
-Requested:  {N} tickets
-Shipped:    {n} in {W} waves
-Paused:     {p} (high regression risk — needs manual review)
-Failed:     {f} (see details below)
-Skipped:    {s} (dependency failed)
-Invalid:    {i} (closed during investigation)
+Requested:    {N} tickets
+Implemented:  {n} (across {W} waves)
+Paused:       {p} (high regression risk — needs manual review)
+Failed:       {f} (see details below)
+Skipped:      {s} (dependency failed)
+Invalid:      {i} (closed during investigation)
+
+Preview: {URL or port or command}
+
+Review checklist: {path to CHAIN-REVIEW-*.md}
 
 Wave 1 (parallel):
-  ✓ TKT-001  "title"  {merge commit}
-  ✓ TKT-002  "title"  {merge commit}
-  ✗ TKT-004  "title"  FAILED: tests failed after merge (branch left at ticket/tkt-004-...)
-  ✓ TKT-005  "title"  {merge commit}
-  ✓ TKT-006  "title"  {merge commit}
+  ✓ TKT-001  "title"  ({files} files, {tests} tests, risk: low)
+  ✓ TKT-002  "title"  ({files} files, {tests} tests, risk: low)
+  ✗ TKT-004  "title"  FAILED: tests failed (branch left at ticket/tkt-004-...)
+  ✓ TKT-005  "title"  ({files} files, {tests} tests, risk: medium)
 
-Wave 2 (parallel, re-investigated):
-  ✓ TKT-003  "title"  {merge commit}
-  ✓ TKT-007  "title"  {merge commit}
+Wave 2 (re-investigated):
+  ✓ TKT-003  "title"  ({files} files, {tests} tests, risk: low)
 
 Paused (high risk):
   TKT-020  regression risk: high — manual approval needed
-    Run /ta 20 after reviewing the investigation
 
 Failed:
-  TKT-004  tests failed after merge: 3 regressions in auth_test.ts
-    Branch left at ticket/tkt-004-... for inspection
+  TKT-004  tests failed: 3 regressions in auth_test.ts
     Worktree at .worktrees/ticket-tkt-004/
 
-Skipped (dependency failed):
-  (none in this run)
-
-Hub file conflicts (multiple tickets touched these — review merge order):
-  handlers.go: TKT-001, TKT-002, TKT-003, TKT-005, TKT-006, TKT-008, TKT-009
-  Dashboard.tsx: TKT-001, TKT-002, TKT-007
+Hub file conflicts (review merge order):
+  handlers.go: TKT-001, TKT-002, TKT-003, TKT-005
 
 Next:
-  Inspect failures:   cd .worktrees/ticket-tkt-004 && git log --oneline
-  Retry a ticket:     /tch 4
-  Defer failures:     /td 4 {reason}
-  Review a paused one: /ti 20  (then /ta 20 if it looks good)
-  Clean up:           /tcl --all
+  Review the checklist:  open {checklist path}
+  Ship all approved:     /tch --ship
+  Ship one at a time:    /tsh {ID}
+  Defer a ticket:        /td {ID} {reason}
+  Clean up:              /tcl --all
 ```
 
 Send **one** prowl:
 
-- **All succeeded:**
+- **Default mode (review checklist ready):**
   - Application: `Claude Code: {project-name}`
-  - Event: `Chain complete — {n} shipped in {W} waves`
-  - Description: list of shipped ticket IDs. If any paused/failed, mention counts.
+  - Event: `Chain ready — {n} tickets for review`
+  - Description: "Review checklist at {path}. Preview at {URL/port}. Run /tch --ship when verified."
   - Priority: `0`
 
-- **Any failures or stops:**
+- **`--ship` mode (all shipped):**
   - Application: `Claude Code: {project-name}`
-  - Event: `Chain done — {n} shipped, {f} failed`
-  - Description: which tickets failed and why (brief). Which were paused.
+  - Event: `Chain complete — {n} shipped in {W} waves`
+  - Description: list of shipped ticket IDs
+  - Priority: `0`
+
+- **Any failures:**
+  - Application: `Claude Code: {project-name}`
+  - Event: `Chain done — {n} ready, {f} failed`
+  - Description: which tickets failed and why (brief)
   - Priority: `1`
 
 ## `--sequential` mode
@@ -312,15 +400,26 @@ For each ticket:
 1. Investigate (if `open`)
 2. Risk gate — `high` stops the entire chain
 3. Implement
-4. Ship
 
-This is the old `/ticket-chain` behavior. Use it when:
+Then generate the review checklist (same as default mode). Add `--ship` to also auto-ship.
+
+Use `--sequential` when:
 - The project has flaky tests that fail under parallel execution
 - You want maximum predictability
 - You're debugging a specific ordering issue
 
+## `--ship` mode
+
+When `--ship` is passed, skip Phase 4 entirely. After each wave's implementation, immediately merge to main, deploy, and archive — the old fire-and-forget behavior. Combine with `--sequential` for strict one-at-a-time ship.
+
+Use `--ship` when:
+- You've already reviewed the tickets' investigations and trust the implementation
+- The tickets are small/routine and review overhead isn't worth it
+- You're re-running a chain after reviewing and want to ship without another checklist
+
 ## Rules
 
+- **Default is review, not ship.** The chain stops at a review checklist with a preview/staging deploy. The user explicitly ships with `/tch --ship` or `/tsh {ID}`. This is intentional — auto-shipping 9 tickets without human verification is too aggressive even for experienced users.
 - **Bias toward overdetection of dependencies.** A false dependency costs time (ticket gets sequenced instead of parallelized). A missed dependency risks shipping broken code. Investigation prompts explicitly instruct agents to err on the side of declaring dependencies. The file-overlap heuristic adds a second layer of conservative detection on top — but with the hub-file threshold so that central files (touched by 3+ tickets) don't serialize the entire batch.
 - **Hub-file threshold: 3+ tickets.** If a file appears in 3 or more tickets' implementation plans, it's a hub file — too central to use as a dependency signal. It gets reported as a conflict note instead. The investigator's declared `## Dependencies` are the right signal for hub files, because they capture *semantic* dependency ("I need the endpoint TKT-006 creates") rather than *incidental* overlap ("we both add a route to handlers.go"). The threshold of 3 is intentionally low; even at 3 you're likely looking at a shared registry or config rather than a genuine sequential dependency chain.
 - **Cycles are resolved, never rejected.** User argument order is the tiebreaker. The system always produces a valid execution plan.
@@ -328,7 +427,6 @@ This is the old `/ticket-chain` behavior. Use it when:
 - **Failures within a wave don't stop other tickets in that wave** (they're independent by construction). But failures **do** cascade: if TKT-002 fails, anything in later waves that depends on TKT-002 is skipped.
 - **Re-investigation between waves is mandatory.** The codebase changed. The original plan is stale. Skipping re-investigation to save tokens is not worth the risk of implementing against outdated assumptions.
 - **Ship sequentially, always.** Even within a wave of independent tickets, shipping (merge to main) happens one at a time. Merges must be tested against the true state of main, which changes after each ship.
-- **No manual approval step.** The user opted into auto-approval by running `/ticket-chain`. The risk gate and post-merge test failure are the safety valves.
 - **One prowl.** Never per-ticket, never per-wave.
 - **Never force push.** Never push broken code. If post-merge tests fail, reset and skip that ticket.
 - **Invalid/already-fixed tickets don't break the chain.** Close them and keep going.
