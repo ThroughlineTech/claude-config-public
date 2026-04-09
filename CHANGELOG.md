@@ -2,39 +2,37 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.2.2-public] — 2026-04-09
+## [0.2.2] — 2026-04-09
 
 ### Added
 
-- **`/ticket-chain` with smart dependency detection and wave execution** — the "queue up work and walk away" command. Investigates all tickets in parallel, detects inter-ticket dependencies (both explicitly declared by investigators and inferred from file-overlap heuristics), builds a DAG, resolves cycles using user argument order as tiebreaker, computes execution waves, implements independent tickets in parallel worktrees within each wave, ships sequentially, then re-investigates dependent tickets against the updated codebase before starting the next wave. Biases toward overdetection of dependencies (false positives cost time, false negatives risk broken code). Flags: `--dry-run` (investigate + show wave plan), `--sequential` (strict-sequential behavior), `--no-ship` (implement but don't merge). Alias: `/tch`.
+- **`/ticket-chain` with smart dependency detection and wave execution** — the "queue up work and walk away" command. Investigates all tickets in parallel, detects inter-ticket dependencies (both explicitly declared by investigators and inferred from file-overlap heuristics with hub-file threshold), builds a DAG, resolves cycles using user argument order as tiebreaker, computes execution waves, implements independent tickets in parallel worktrees within each wave, re-investigates dependent tickets against the updated codebase before starting the next wave. **Defaults to review, not ship:** after implementation, deploys to preview/staging and generates a consolidated `CHAIN-REVIEW-*.md` checklist for human verification. Prowls when ready. User ships explicitly with `/tch --ship` or `/tsh` per ticket. Flags: `--dry-run` (investigate + show wave plan), `--sequential` (strict one-at-a-time), `--ship` (auto-ship, fire-and-forget). Alias: `/tch`.
+- **Full-lifecycle delegation** — `/ticket-delegate {ID}` (no phase argument) now delegates the entire lifecycle — investigate, implement, commit — to the target model in one brief. The other model approaches the ticket fresh, with its own investigation and implementation style. On `/ticket-collect`, Claude acts as code reviewer: reads the investigation, reviews the diff, checks tests, and writes a `## Delegation Review` with verdict (`approved` / `concerns` / `rejected`). New brief template: `brief-templates/full.md`. Phase-specific delegation (`/ticket-delegate {ID} investigate`, etc.) still works for surgical cases.
 - **Bare-number ID shorthand** — all ticket commands now accept bare numbers (e.g., `/tch 1 2 3 4 6`, `/ti 14`, `/td 3 too risky`). Numbers are resolved to full ticket IDs by reading the prefix from `ticket-config.md` and zero-padding to match existing files.
-- **Command frontmatter** restored — every `/ticket-*` command has `description` and `argument-hint` fields so the slash-command picker shows what the command does and the expected arguments inline.
-- **Short aliases via real-file wrappers** — `install.sh` generates gitignored real `.md` wrapper files from `aliases.map` instead of symlinks. The Claude Code harness dedupes symlinked commands to a single entry, hiding either the alias or the canonical — real files avoid this.
 
 ### Fixed
 
 - **`/ticket-batch` worktree sync-back** — after Phase 4 subagents complete, ticket files that reached `proposed` or `review` status are now copied from `.worktrees/ticket-{id}/tickets/{ID}.md` back to `tickets/{ID}.md` in the main working directory, staged, and committed. Previously the main branch copies remained stale after a batch investigation because subagents only wrote to their worktree copies.
-- **Stale alias descriptions and missing commands in READMEs** — commands/README.md and main README.md updated to reflect the full v0.2.0 command set and real-file alias approach.
 
-## [0.2.1-public] — 2026-04-08
+## [0.2.1] — 2026-04-08
 
 ### Added
 
 - **Command frontmatter** — every `/ticket-*` command has `description` and `argument-hint` fields so the slash-command picker shows what the command does and the expected arguments inline, instead of just the bare name.
-- **Short aliases** — `commands/aliases.map` defines single-letter/short aliases (`/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`). `install.sh` reads the map and creates gitignored symlinks in `commands/` on each machine, so aliases propagate with a `git pull + bash install.sh` and don't pollute the repo. Stale aliases removed from the map are reaped on the next install.
+- **Short aliases** — `commands/aliases.map` defines single-letter/short aliases (`/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`). `install.sh` reads the map and generates gitignored real `.md` wrapper files in `commands/` on each machine (each wrapper delegates to its canonical command via `$ARGUMENTS`), so aliases propagate with a `git pull + bash install.sh` and don't pollute the repo. Real files rather than symlinks because the Claude Code harness dedupes symlinked commands to a single entry, hiding either the alias or the canonical. Stale aliases removed from the map are reaped on the next install.
 
-## [0.2.0-public] — 2026-04-08
+## [0.2.0] — 2026-04-08
 
 Major expansion of the ticket workflow: terminal-state management, preview-before-ship, and parallel batch mode. Existing projects can upgrade via `/ticket-install` in update mode — it migrates the config format and backfills the new `app:` field into existing tickets.
 
 ### Added
 
 - **Terminal ticket folders** — `tickets/shipped/`, `tickets/deferred/`, `tickets/wontfix/`. Created lazily on first use (no `.gitkeep`); ticket files move into them via `git mv` so rename history is preserved. Keeps the active set at `tickets/` root clean.
-- **`/ticket-defer`** — park an active ticket in `tickets/deferred/` with a required reason. Reason can be given in any language; the command translates to English before writing.
+- **`/ticket-defer`** — park an active ticket in `tickets/deferred/` with a required reason. Reason can be given in any language (e.g. Danish); the command translates to English before writing.
 - **`/ticket-close`** — close as wontfix (duplicate, invalid, obsolete, rejected) → `tickets/wontfix/`. Same translated-reason handling as defer.
 - **`/ticket-reopen`** — bring a terminal ticket back to active. Useful when a shipped change regresses, a deferred ticket's moment arrives, or a closed ticket turns out to be real. Preserves the historical `## Shipped` / `## Deferred` / `## Closed` sections so the full lifecycle stays readable.
 - **`/ticket-preview`** — build a ticket's feature branch and launch it locally (or push to staging, or deploy to a simulator) **without** merging to main. Separates "inspectable" from "shipped" so smoke-testing no longer requires a production deploy.
-- **`/ticket-batch`** — run investigate + auto-approve + implement on multiple tickets in parallel, each in its own `git worktree` under `.worktrees/ticket-{id}/`. Spawns one subagent per ticket so each gets a fresh context window. Auto-approves by default; `Regression Risk: high` is a hard manual gate. Pre- and post-implement file-overlap conflict detection. Rollup preview (merge all branches into one scratch branch, preview once) or individual-per-ticket. Sends a single push notification (via whatever channel is set up in `CLAUDE.md`) when the whole batch is ready.
+- **`/ticket-batch`** — run investigate + auto-approve + implement on multiple tickets in parallel, each in its own `git worktree` under `.worktrees/ticket-{id}/`. Spawns one subagent per ticket so each gets a fresh context window. Auto-approves by default; `Regression Risk: high` is a hard manual gate. Pre- and post-implement file-overlap conflict detection. Rollup preview (merge all branches into one scratch branch, preview once) or individual-per-ticket. One prowl when the whole batch is ready.
 - **`/ticket-cleanup`** — reaper for worktrees and preview processes. Three forms: `{ID}` (targeted), `--all` (nuclear), no-arg (stale only). Idempotent. Also runs as a silent preflight inside `/ticket-list`, `/ticket-status`, and `/ticket-batch` so the system self-heals without explicit cleanup runs.
 - **Preview profiles** — `.claude/ticket-config.md` now has a `## Preview profiles` section supporting **atomic** profiles (one command launches one thing, with port offset, readiness rule, sequential flag, dependencies) and **compound** profiles (ordered list of atomics launched together in dependency order). Compound previews are how a client + server run together, or a macOS host app runs alongside its iOS companion for end-to-end testing. Cross-component placeholders like `{SERVER_PORT}` are substituted after all component ports are computed. Multi-line `.preview.pid` records one row per component; teardown kills in reverse launch order.
 - **Per-ticket `app:` field** — ticket frontmatter now names which preview profile the ticket targets. `/ticket-new` asks via AskUserQuestion if the project has 2+ profiles.
@@ -54,12 +52,6 @@ Major expansion of the ticket workflow: terminal-state management, preview-befor
 ### Fixed
 
 - **Ticket ID duplication vector** — before this release, moving a ticket file out of `tickets/` root (even manually) would cause the next `/ticket-new` to reuse the missing ID. Now impossible by construction: ID scans are recursive, terminal moves use `git mv`, and tickets can't be deleted through any supported command.
-
-## [0.1.0-public] — 2026-04-07
-
-Public template version. Extracted from a personal `claude-config` repo with all secrets, plans, and project-specific content removed. `CLAUDE.md` is a customize-me template; the rest is a turnkey workflow you can install and use immediately.
-
-To use: fork the repo, customize `CLAUDE.md` for yourself, run `bash install.sh`. See [README.md](README.md) for the quickstart.
 
 ## [0.1.0] — 2026-04-07
 
@@ -83,7 +75,7 @@ Initial version. Everything is new.
 
 - **`settings.json` accumulated permission grants** are regenerated on every `install.sh` run. If you approve a one-shot grant during daily work, it lives in `~/.claude/settings.json` only until the next install, at which point it's wiped (and backed up). Promote recurring patterns to `settings.{base,mac,windows}.json` in the repo to persist them across installs.
 - **Per-project memory** (`~/.claude/projects/*/memory/`) is not synced between machines — it's machine-local by design. If you want cross-machine memory for a specific project, commit that project's memory into its own repo.
-- **Push notification setup is BYO**. The public template's `CLAUDE.md` describes the pattern but doesn't ship with a working API key. You provide your own (Prowl, Pushover, ntfy.sh, Slack, Discord, Telegram, etc.) and either commit it directly to a private fork or store it in a gitignored `~/.claude/secrets.md`.
+- **Prowl API key in CLAUDE.md** means the repo must be private. Splitting secrets into a gitignored `~/.claude/secrets.md` is documented in `docs/09-faq.md` as an option for users who want to make the workflow public.
 
 ## Release notes format
 

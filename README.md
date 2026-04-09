@@ -49,8 +49,8 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 | `/ticket-collect TKT-001` | After a delegation returns, pull the work back into the Claude Code flow |
 | `/ticket-review TKT-001` | Generate a human verification checklist |
 | `/ticket-preview TKT-001` | Launch the ticket's feature branch locally (or on staging/simulator) without shipping |
-| `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one notification at end |
-| `/ticket-chain [IDs...]` | Smart: parallel investigate, detect dependencies, wave execute, ship; one notification at end |
+| `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees; one prowl at end |
+| `/ticket-chain [IDs...]` | Smart: parallel investigate, detect dependencies, wave execute, preview + review checklist; `--ship` to auto-ship |
 | `/ticket-ship TKT-001` | Rebase, run tests, merge, (optionally) deploy; archives to `tickets/shipped/` |
 | `/ticket-defer TKT-001 {reason}` | Park a ticket in `tickets/deferred/` with a reason (any language, translated to English) |
 | `/ticket-close TKT-001 {reason}` | Close as wontfix (duplicate, invalid, obsolete) → `tickets/wontfix/` |
@@ -145,19 +145,9 @@ Start with **[docs/00-overview.md](docs/00-overview.md)** if you've never seen t
 | Understand *why* it's designed this way | [10-design-decisions.md](docs/10-design-decisions.md) |
 | Keep the repo healthy over time | [11-maintenance.md](docs/11-maintenance.md) |
 
-## Public template — this is a fork-and-customize starter
+## This repo is private
 
-This is the public template version of `claude-config`. It contains the workflow infrastructure (commands, brief templates, install scripts, settings baseline, docs) without any personal secrets, plans, or project-specific content.
-
-**To use it:**
-
-1. **Fork this repo** (or clone and re-init: `git clone <url> ~/src/claude-config && cd ~/src/claude-config && rm -rf .git && git init`)
-2. **Customize `CLAUDE.md`** — it ships as a template with placeholders. Add your own push notification setup, your own conventions, anything else you want every agent to know
-3. **Decide on visibility:**
-   - If you put secrets directly in `CLAUDE.md` (an API key, etc.), **make your fork private**
-   - If you want to keep your fork public, store secrets in `~/.claude/secrets.md` (already in `.gitignore`) and reference them from `CLAUDE.md` indirectly. See the `CLAUDE.md` template's "Where to put secrets" section.
-4. **Run `bash install.sh`** to wire everything into `~/.claude/` and your VS Code Copilot prompts directory
-5. **Use it.** Open a Claude Code session in any project and try `/ticket-install`, then `/ticket-new`. Try Copilot Chat with the global instructions loaded automatically.
+**Do not make this repo public.** The `CLAUDE.md` contains a Prowl API key for push notifications, and the `plans/` directory contains in-progress design work on various projects. See [docs/09-faq.md](docs/09-faq.md) for what to do if you ever want to share the workflow publicly (short answer: split it into two repos; do not just flip the visibility switch).
 
 ## Platform support
 
@@ -171,8 +161,4 @@ This is the public template version of `claude-config`. It contains the workflow
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Use, fork, modify, and redistribute freely. Attribution appreciated but not required.
-
-## Credits
-
-Originally extracted from a personal dotfiles project. The patterns (universal commands, cross-model delegation via briefs, three-layer architecture, jq settings merge, etc.) are documented exhaustively in [docs/10-design-decisions.md](docs/10-design-decisions.md) so you can understand the reasoning before forking.
+Personal project. Not licensed for redistribution. If you want the patterns for your own use, fork the repo and adapt; don't copy verbatim.

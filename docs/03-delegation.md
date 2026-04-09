@@ -270,7 +270,7 @@ For phase-specific delegation, there's also a third role:
 |---|---|
 | UI work, frontend, design-heavy | `/ticket-delegate` → Gemini (full lifecycle) |
 | Straightforward bug fix | `/ticket-approve` or `/ticket-chain` (Claude does it all) |
-| Batch of backend tickets | `/ticket-chain 1 2 3 4` (Claude handles everything) |
+| Batch of backend tickets | `/ticket-chain 1 2 3 4` (Claude handles everything, review checklist when done) |
 | Complex architectural change | `/ticket-approve` (Claude), then `/ticket-delegate verify implement` for a second opinion |
 | Investigation feels uncertain | `/ticket-investigate`, then `/ticket-delegate verify investigate` |
 | Multiple tickets, mixed types | `/ticket-chain` for the ones Claude should handle, `/ticket-delegate` for the ones another model should handle |

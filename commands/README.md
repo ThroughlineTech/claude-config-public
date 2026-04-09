@@ -19,7 +19,7 @@ Each file is a Claude Code slash command definition. The filename (minus `.md`) 
 | `ticket-review.md` | `/ticket-review TKT-NNN` | Generate a human verification checklist |
 | `ticket-preview.md` | `/ticket-preview TKT-NNN` | Launch the ticket's branch locally without shipping |
 | `ticket-batch.md` | `/ticket-batch [IDs...]` | Run investigate + implement on many tickets in parallel worktrees |
-| `ticket-chain.md` | `/ticket-chain [IDs...]` | Smart: parallel investigate, dependency detection, wave execute + ship |
+| `ticket-chain.md` | `/ticket-chain [IDs...]` | Smart: parallel investigate, dependency detection, wave execute, preview + review checklist |
 | `ticket-ship.md` | `/ticket-ship TKT-NNN` | Rebase, test, merge, deploy; archive to `tickets/shipped/` |
 | `ticket-defer.md` | `/ticket-defer TKT-NNN {reason}` | Park a ticket in `tickets/deferred/` |
 | `ticket-close.md` | `/ticket-close TKT-NNN {reason}` | Close as wontfix → `tickets/wontfix/` |
