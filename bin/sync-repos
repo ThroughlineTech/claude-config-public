@@ -1,0 +1,122 @@
+#!/bin/bash
+# sync-repos.sh — clone or fetch all tracked repos
+# Usage: bash sync-repos.sh
+#
+# For each entry: "local/path:github-repo-name"
+# - If the dir exists with a .git folder → fetch --all --prune (all branches), then pull --ff-only current branch
+# - If not → clone from GitHub into that path
+# Push is intentionally manual — run from each repo as needed
+
+GITHUB_USER="danrichardson"
+
+BASE="$HOME/src"
+
+REPOS=(
+  # --- _life ---
+  "_life:_life"
+
+  # --- _project-boopadoop ---
+  "_project-boopadoop/boopadoop:boopadoop"
+
+  # --- _project-loomwork ---
+  "_project-loomwork/loomwork:loomwork"
+
+  # --- _project-rejog ---
+  "_project-rejog/maub-public:mawb-public"
+  "_project-rejog/rejog:rejog"
+  "_project-rejog/rejog-android:rejog-android"
+  "_project-rejog/rejog-backend:rejog-backend"
+  "_project-rejog/rejog-docs:rejog-docs"
+  "_project-rejog/rejog-email-worker:rejog-email-worker"
+  "_project-rejog/rejog-ios:rejog-ios"
+  "_project-rejog/rejog-ios-shared:rejog-ios-shared"
+  "_project-rejog/rejog-safety:rejog-safety"
+
+  "_project-rejog/rejog-prototype:rejog-prototype"
+  "_project-rejog/rejog-public-web:rejog-public-web"
+  "_project-rejog/rejog-specs:rejog-specs"
+
+  # --- _project-blast ---
+  "_project-blast/rejog-blast:rejog-blast"
+
+  # --- _project-scot ---
+  "_project-scot:routescout"
+
+  # --- _project-solar ---
+  "_project-solar/homeassistant_stuff:homeassistant_stuff"
+  "_project-solar/solardocs:solardocs"
+  "_project-solar/solarseed:solarseed"
+  "_project-solar/solarseed-peak-shaver:solarseed-peak-shaver"
+  "_project-solar/solarseed-tou-metering:solarseed-tou-metering"
+
+  # --- _project-sqzarr ---
+  "_project-sqzarr/sqzarr:sqzarr"
+
+  # --- _project-proxy ---
+  "_project-proxy/api-router:api-router"
+
+  # --- _project-throughline ---
+  "_project-throughline/codenoscopy:codenoscopy"
+  "_project-throughline/fork-the-vote:fork-the-vote"
+  "_project-throughline/openbaseline:openbaseline"
+  "_project-throughline/sidefire:sidefire"
+  "_project-throughline/sidefire2:sidefire2"
+  "_project-throughline/theimagedepot:theimagedepot"
+  "_project-throughline/throughline-interview:throughline-interview"
+  "_project-throughline/throughline-interview-v2:throughline-interview-v2"
+  "_project-throughline/throughlinetech:throughlinetech"
+
+  # --- standalone ---
+  "mac-remote-deploy:mac-remote-deploy"
+  "theprocess:theprocess"
+  "youtube-dl:ytdl"
+
+  # --- dotfiles / agent config ---
+  "claude-config:claude-config"
+  "claude-config-public:claude-config-public"  # uncomment after pushing the public template; adjust name to match the GitHub repo
+
+)
+
+# Intentionally excluded (old locations — canonical paths now in sync-repos):
+#   throughline-interview  — moved to _project-throughline/throughline-interview
+#   erik                   — renamed fork-the-vote, moved to _project-throughline/fork-the-vote
+
+# Intentionally excluded:
+#   loomwork-demo         — merged into loomwork monorepo (examples/)
+#   loomwork-verification — merged into loomwork monorepo (examples/)
+#   rejog-dashboard       — local only, no GitHub remote yet
+#   wpfgrpc, Turducken, AppSheet, Zenfolio6, SmartThingsPublic — deleted/not needed
+#   ArduinoStairLights    — kept on GitHub but no active local work
+#   StringCommon, WidgetCo — deleted from GitHub
+#   promo-boopadoop        — deleted from GitHub
+#   rejog-ios-archive      — deleted from GitHub
+#   sidefire-ios           — deleted from GitHub
+#   ZenSync3               — deleted from GitHub
+
+ERRORS=()
+
+for entry in "${REPOS[@]}"; do
+  rel="${entry%%:*}"
+  repo="${entry##*:}"
+  dir="$BASE/$rel"
+  url="https://github.com/$GITHUB_USER/$repo.git"
+
+  if [ -d "$dir/.git" ]; then
+    echo "==> sync: $rel ($repo)"
+    git -C "$dir" fetch --all --prune || ERRORS+=("$rel")
+    git -C "$dir" pull --ff-only 2>/dev/null || echo "    (skipped pull — local changes or diverged branch)"
+  else
+    echo "==> clone: $repo → $rel"
+    mkdir -p "$(dirname "$dir")"
+    git clone "$url" "$dir" || ERRORS+=("$rel")
+  fi
+done
+
+echo ""
+if [ ${#ERRORS[@]} -eq 0 ]; then
+  echo "All done."
+else
+  echo "Errors in:"
+  for e in "${ERRORS[@]}"; do echo "  $e"; done
+  exit 1
+fi

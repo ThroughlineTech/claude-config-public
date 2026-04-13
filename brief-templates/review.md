@@ -66,6 +66,10 @@ Each item must be:
 ### Regression Checks
 - [ ] Existing feature A still works: do X, see Y
 - [ ] Existing feature B still works: do X, see Y
+
+### Verdict
+- [ ] pass
+- [ ] fail — reason:
 ```
 
 ## Hard rules

@@ -20,7 +20,7 @@ The argument is a ticket ID (e.g., TKT-001).
 - Ticket status MUST be `review` (meaning human has verified). If not, report status and stop.
 - Ensure we're on the ticket's feature branch.
 - Ensure working tree is clean.
-- Determine the main branch name (`main`, `master`, or `develop`).
+- Determine the main branch: read `Main branch` from `.claude/ticket-config.md` if present. Otherwise fall back to `git symbolic-ref refs/remotes/origin/HEAD`. If the result is `master`, warn the user and suggest running `/ticket-install` to migrate.
 
 ## Phase 1: Final Regression Test
 

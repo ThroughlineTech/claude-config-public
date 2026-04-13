@@ -2,6 +2,26 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.4] — 2026-04-13
+
+### Added
+
+- **Automated verification in review checklists** — `/ticket-chain` and `/ticket-review` now run automated checks (tests, typecheck, build, lint, rebase status, merge conflict detection) before generating the human checklist. Results are stamped pass/fail in a new `### Automated Checks` section per ticket, so the human reviewer only needs to verify what requires eyes and hands. Failing checks are shown with strikethrough and error details; the Verdict section summarizes the automated result.
+- **Branch enforcement at install time** — `/ticket-install` now checks if the repo's default branch is `main`. If it's `master` (or anything else), warns and offers to rename. The detected branch is recorded as `Main branch:` in `.claude/ticket-config.md`.
+- **`Main branch` config field** — `.claude/ticket-config.md` now stores the project's main branch name. All branch-detecting commands (`/ticket-approve`, `/ticket-ship`, `/ticket-chain`) read this field first, falling back to `git symbolic-ref` only if absent. If the detected branch is `master`, commands warn and suggest running `/ticket-install` to migrate.
+
+### Changed
+
+- **`/ticket-review` Phase 2 rewritten** — now runs the full automated check suite (tests, build, lint, typecheck, rebase status) and integrates results directly into the checklist as `### Automated Checks`, replacing the old separate `Tests: passing` / `Build: clean` lines in the finish output.
+- **`/ticket-chain` Phase 4 gains Step B** — automated verification runs between preview deploy (Step A) and checklist generation (now Step C). Step D is the commit.
+- **Branch detection standardized** — `/ticket-approve`, `/ticket-ship`, and `/ticket-chain` all use the same pattern: read `Main branch` from config, fall back to `git symbolic-ref`, warn on `master`.
+
+## [0.2.3] — 2026-04-09
+
+### Changed
+
+- **Interactive review checklist verdicts** — review checklists now use `- [ ] pass` / `- [ ] fail — reason:` checkboxes instead of a summary table with `☐` characters. Checkboxes are clickable in VS Code markdown preview and GitHub. Each ticket gets an inline verdict section after its verification steps, plus a consolidated Results section at the bottom for at-a-glance scanning. Failure reasons are recorded inline on the fail checkbox line. Applies to `/ticket-chain`, `/ticket-review`, `/ticket-collect`, and delegation briefs.
+
 ## [0.2.2] — 2026-04-09
 
 ### Added

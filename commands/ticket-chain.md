@@ -30,7 +30,7 @@ Optional flags:
 - Read Test, Build, and Deploy commands from the config.
 - Working tree must be clean. If dirty, STOP.
 - Must be on the main branch. If not, STOP — chain mode ships to main.
-- Determine the main branch name.
+- Determine the main branch: read `Main branch` from `.claude/ticket-config.md` if present. Otherwise fall back to `git symbolic-ref refs/remotes/origin/HEAD`. If the result is `master`, warn the user and suggest running `/ticket-install` to migrate.
 
 ## Phase 0: Resolve the ticket set + reap stale worktrees
 
@@ -262,7 +262,24 @@ Read the Preview/Deploy configuration from `.claude/ticket-config.md`. Deploy th
 
 If previewing a rollup of all branches (multi-wave chains where tickets haven't been merged to main yet), create a scratch branch merging all successful ticket branches, deploy from that.
 
-### Step B: Generate review checklist
+### Step B: Automated verification
+
+Before generating the checklist, run every check that can be verified without a human. Read Test, Build, and Lint commands from `.claude/ticket-config.md`.
+
+For each successfully implemented ticket, in its worktree (or on its feature branch):
+
+1. **Tests**: run the Test command. Capture pass/fail + counts (passed, failed, skipped).
+2. **Typecheck**: run the typecheck/lint command if configured. Capture pass/fail + first error if any.
+3. **Build**: run the Build command. Capture pass/fail + first error if any.
+4. **Lint**: run the Lint command if configured. Capture pass/fail + warning count.
+5. **Branch rebased on main**: check `git merge-base --is-ancestor origin/{main} HEAD`. Pass if yes.
+6. **No merge conflicts**: run `git merge-tree $(git merge-base origin/{main} HEAD) origin/{main} HEAD` or equivalent. Pass if clean.
+
+Collect results into a per-ticket report. If a command is not configured in ticket-config, omit that check entirely (don't report "skipped").
+
+If ANY automated check fails for a ticket, that ticket's implementation is suspect — flag it prominently in the checklist but do NOT remove it from the chain. The human reviewer decides.
+
+### Step C: Generate review checklist
 
 Create a single consolidated markdown file at `{tickets-dir}/CHAIN-REVIEW-{YYYY-MM-DD-HHMM}.md`:
 
@@ -275,9 +292,10 @@ Preview: {URL or "run `{command}` to start" or "localhost:{port}" or "no preview
 
 ## How to use this checklist
 
-Walk through each ticket below. Check each item as you verify it.
-When done, run `/tch --ship` to ship all approved tickets, or `/tsh {ID}` to ship individually.
-To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
+Walk through each ticket below. Check each verification step as you go.
+Record your verdict at the bottom of each ticket section.
+When done, run `/tch --ship` to ship all passing tickets, or `/tsh {ID}` individually.
+To defer a failure: `/td {ID} {reason}`
 
 ---
 
@@ -292,7 +310,26 @@ To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
 ### Acceptance Criteria
 {copied from ticket}
 
-### Verification Steps
+### Automated Checks
+{Insert results from Step B. Format rules:}
+- [x] {check}: {summary}          ← passing check
+- [ ] ~~{check}: {summary}~~      ← failing check
+  {first error or failing test detail}
+
+{Examples:}
+- [x] Tests: 47 passed, 0 failed, 2 skipped
+- [x] Typecheck: clean
+- [x] Build: clean
+- [x] Lint: clean (3 warnings)
+- [x] Branch rebased on main: yes
+- [ ] ~~Tests: 3 failed~~ (`src/auth.test.ts:42 — expected 200, got 500`)
+
+{Omit lines for commands not configured in ticket-config. After all lines, add one of:}
+> All automated checks passed.
+{or}
+> {N} automated check(s) failed — review before shipping.
+
+### Verification Steps (manual)
 - [ ] {specific step 1 — what to do, what to expect}
 - [ ] {specific step 2}
 - [ ] {etc.}
@@ -303,6 +340,11 @@ To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
 ### Regression Checks
 - [ ] {existing feature still works}
 
+### Verdict
+> Automated: {M}/{M} passed {or: {N} failed — see Automated Checks above}
+- [ ] pass
+- [ ] fail — reason:
+
 ---
 
 ## TKT-002: {title}
@@ -310,12 +352,16 @@ To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
 
 ---
 
-## Summary
+## Results
 
-| Ticket | Title | Risk | Files | Tests | Verdict |
-|--------|-------|------|-------|-------|---------|
-| TKT-001 | ... | low | 3 | 5 | ☐ |
-| TKT-002 | ... | medium | 7 | 12 | ☐ |
+### TKT-001: {title}
+- [ ] pass
+- [ ] fail — reason:
+
+### TKT-002: {title}
+- [ ] pass
+- [ ] fail — reason:
+
 ...
 
 **When ready:** `/tch --ship` to ship all, or `/tsh {ID}` for individual tickets.
@@ -325,7 +371,7 @@ To reject a ticket: `/td {ID} {reason}` to defer, or manually fix and re-run.
 
 The verification steps should be **specific and observable** — "navigate to /settings, click 'Change Password', enter mismatched passwords, expect error message 'Passwords do not match'" not "test the password feature."
 
-### Step C: Commit the checklist
+### Step D: Commit the checklist
 
 Stage and commit the checklist file: `ticket-chain: review checklist for {N} tickets`
 

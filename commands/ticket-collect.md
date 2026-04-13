@@ -125,7 +125,7 @@ If any tickets were `approved` or had `concerns`, generate `{tickets-dir}/CHAIN-
 - What changed per ticket
 - Acceptance criteria verification steps
 - Edge case and regression checks
-- A summary table with verdicts
+- Per-ticket verdict checkboxes (pass / fail with reason) — inline after each ticket and rolled up in a Results section at the bottom
 
 Deploy to preview/staging if configured (same as `/ticket-chain` Phase 4).
 

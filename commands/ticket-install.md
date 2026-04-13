@@ -1,3 +1,7 @@
+---
+description: 'install or update the ticket workflow in this project'
+---
+
 # Install the Ticket Workflow Into This Project
 
 You are bootstrapping a project (new or existing) to use the universal ticket workflow. The slash commands themselves live at `~/.claude/commands/ticket-*.md` and are inherited by every project automatically. This command creates the per-project scaffolding the universal commands need: a tickets directory, a template, and a `.claude/ticket-config.md` that records project-specific build/test/deploy commands and key source paths.
@@ -9,11 +13,27 @@ You are bootstrapping a project (new or existing) to use the universal ticket wo
      - Preview settings (old installs have none, or only a flat `Preview:` field)
      - `## Preview profiles` section (the new profile-based format)
      - `app:` field in `tickets/TEMPLATE.md`
+     - `Main branch:` field in `.claude/ticket-config.md` (added in 0.2.4)
+     - `## Automated Checks` section in `tickets/TEMPLATE.md` (added in 0.2.4)
    - Tell the user what's missing and offer to migrate. Use AskUserQuestion with options: "migrate to the new profile-based preview config", "re-detect the full stack", "edit specific fields", "stop".
-   - **Migration rule:** if the old config has a single flat `Preview:` command, wrap it into a single atomic profile named `default` in the new `## Preview profiles` section and remove the old flat field. Never silently discard user-written commands.
+   - **Migration rule (preview):** if the old config has a single flat `Preview:` command, wrap it into a single atomic profile named `default` in the new `## Preview profiles` section and remove the old flat field. Never silently discard user-written commands.
+   - **Migration rule (main branch):** if `Main branch:` is absent, add it after `ID prefix:` using the result of the branch check in step 4. Default to `main`.
+   - **Migration rule (template):** if `tickets/TEMPLATE.md` exists but lacks `## Automated Checks`, insert it between `## Test Report` and `## Verification Checklist (for human)`.
    - If NO: continue to Phase 2 (fresh install).
 2. Check if `tickets/` already exists. If yes, note that it'll be reused (don't overwrite tickets).
 3. Check if `CLAUDE.md` exists at the project root.
+4. **Verify the primary branch is `main`.**
+   - If the project is a git repo with a remote: `git symbolic-ref refs/remotes/origin/HEAD` → extract the branch name.
+   - If the project is a git repo without a remote: check `git branch` for the current/default branch.
+   - If the result is `master` (or anything other than `main`):
+     a. Warn the user: "This repo's default branch is `{branch}`, not `main`."
+     b. Use AskUserQuestion: "Rename default branch to `main`?" with options: "yes, rename to main", "no, keep {branch}".
+     c. If yes:
+        - `git branch -m {branch} main`
+        - If remote exists: `git push origin main`, then `git push origin --delete {branch}` (confirm with user first), then `git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main`
+     d. If no: proceed, but record the actual branch name in ticket-config's `Main branch:` field.
+   - If the result is already `main`: no action needed.
+   - If not a git repo: skip this check.
 
 ## Phase 2: Detect the stack
 
@@ -65,7 +85,7 @@ Walk the repo and propose profiles based on what you find. Common patterns:
 | `*.xcodeproj` / `*.xcworkspace` with **one** scheme | One atomic profile matching the platform (macOS: `open .app`; iOS: `xcrun simctl launch`). |
 | `*.xcodeproj` / `*.xcworkspace` with **multiple** schemes for different platforms — run `xcodebuild -list` to enumerate | One atomic profile per platform-distinct scheme (e.g. `macos`, `ios`), **plus** a compound `pair: [macos, ios]` if both are present. The compound exists for tickets that affect shared code or require both apps running (Bonjour pairing, cross-device features, etc.). |
 | Xcode project + a separate backend service in the same repo | Atomic profile for the app + atomic profile for the backend + compound that runs backend first, then app. |
-| CLI tool (`bin/` in package.json, Rust binary in Cargo.toml) | One atomic profile with `npm link` / `cargo install --path .` and a notification note to run the binary. |
+| CLI tool (`bin/` in package.json, Rust binary in Cargo.toml) | One atomic profile with `npm link` / `cargo install --path .` and a prowl note to run the binary. |
 | Library with no runtime | No profiles (leave section empty — tickets will just say `app: (none)`). |
 | Nothing obvious | No profiles; prompt the user to define one later. |
 
@@ -188,6 +208,10 @@ updated: YYYY-MM-DD
 <!-- Agent fills this after implementation -->
 
 
+## Automated Checks
+<!-- Agent fills this during /ticket-review or /ticket-chain -->
+
+
 ## Verification Checklist (for human)
 <!-- Agent fills this during /ticket-review -->
 - [ ] 
@@ -213,6 +237,7 @@ updated: YYYY-MM-DD
 - Stack: {detected stack}
 - Tickets directory: tickets/
 - ID prefix: TKT-
+- Main branch: main
 
 ## Commands
 - Test: {test command, or (none)}

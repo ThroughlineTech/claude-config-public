@@ -23,7 +23,7 @@ The argument is a ticket ID (e.g., TKT-001).
 
 ## Phase 1: Branch Setup
 
-1. Determine the main branch (usually `main`, sometimes `master` or `develop`). Check `git symbolic-ref refs/remotes/origin/HEAD` if unsure.
+1. Determine the main branch: read `Main branch` from `.claude/ticket-config.md` if present. Otherwise fall back to `git symbolic-ref refs/remotes/origin/HEAD`. If the result is `master`, warn the user and suggest running `/ticket-install` to migrate.
 2. Ensure you're on main and it's up to date: `git checkout {main} && git pull`
 3. Create a feature branch: `git checkout -b ticket/{lowercased-id}-{slugified-title}`
    - Example: `ticket/tkt-001-fix-auth-redirect`

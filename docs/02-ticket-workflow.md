@@ -240,8 +240,11 @@ updated: 2026-04-07
 ## Test Report
 {filled in by /ticket-approve or /ticket-collect}
 
+## Automated Checks
+{filled in by /ticket-review or /ticket-chain — pass/fail results from tests, build, lint, typecheck, rebase status}
+
 ## Verification Checklist (for human)
-- [ ] {filled in by /ticket-review}
+- [ ] {filled in by /ticket-review — manual-only steps}
 
 ## Regression Report
 {filled in by /ticket-ship}
@@ -269,7 +272,7 @@ Before you can use `/ticket-new` in a project, the project needs a `tickets/` di
 /ticket-install
 ```
 
-`/ticket-install` detects the stack (Node/Swift/Rust/Go/Python/etc.), proposes test/build/deploy commands, asks you to confirm, and writes:
+`/ticket-install` detects the stack (Node/Swift/Rust/Go/Python/etc.), proposes test/build/deploy commands, verifies the default branch is `main` (warns and offers to rename if it's `master`), asks you to confirm, and writes:
 
 - `tickets/TEMPLATE.md` — the template every new ticket is copied from
 - `.claude/ticket-config.md` — project-specific config (stack, tickets dir, commands, key source paths, context docs)

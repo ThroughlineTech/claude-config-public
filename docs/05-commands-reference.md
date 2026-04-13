@@ -13,14 +13,15 @@ All commands live in `commands/` in the repo and are symlinked into `~/.claude/c
 **What it does**:
 - Detects the stack by looking for marker files (package.json, Cargo.toml, *.xcodeproj, go.mod, pyproject.toml, etc.)
 - Proposes test/build/deploy commands for the detected stack
+- Verifies the repo's default branch is `main`; if it's `master`, warns and offers to rename
 - Asks you to confirm via AskUserQuestion
 - Creates `tickets/TEMPLATE.md` with the standard frontmatter and sections
-- Creates `.claude/ticket-config.md` with stack info, commands, and key source paths
+- Creates `.claude/ticket-config.md` with stack info, commands, main branch name, and key source paths
 - Appends a `## Tickets` section to the project's `CLAUDE.md` (creates the file if missing)
 
 **Preconditions**: None. Can be run on an empty or populated project.
 
-**Side effects**: Creates files in the current project. Does not touch git.
+**Side effects**: Creates files in the current project. May rename the default branch if user approves.
 
 ## `/ticket-new "title"`
 
@@ -159,14 +160,14 @@ All commands live in `commands/` in the repo and are symlinked into `~/.claude/c
 - Verifies ticket status is `review`
 - Verifies the feature branch is checked out
 - Reads the diff against main
-- Generates a Verification Checklist (for human) section with specific, observable steps to verify each Acceptance Criterion
+- Runs automated checks (tests, build, lint, typecheck, rebase status, merge conflict detection) and records pass/fail results in an `### Automated Checks` section
+- Generates a Verification Checklist (for human) section with specific, observable steps for what can't be automated
 - Includes Setup, Core Functionality, Edge Cases, and Regression Checks sections
-- Runs the test and build commands as a final sanity check
 - Writes the checklist into the ticket file
 
 **Preconditions**: Ticket status is `review`, feature branch checked out.
 
-**Side effects**: Updates the ticket file. Runs test/build commands. Does not modify source code.
+**Side effects**: Updates the ticket file. Runs test/build/lint commands. Does not modify source code.
 
 ## `/ticket-ship TKT-NNN`
 
