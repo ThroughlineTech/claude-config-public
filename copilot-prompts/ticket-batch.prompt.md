@@ -8,7 +8,7 @@ argument-hint: '[TKT-XXX ...] [--mode=auto|rollup|individual] [--no-preview] [--
 
 Run investigate → implement → preview on multiple tickets, each in its own git worktree. Notify the user once when the whole batch is ready.
 
-> **Prefer `/ticket-chain`** for most use cases. Chain mode does everything batch does but also detects dependencies, computes execution waves, deploys to preview/staging, and generates a consolidated review checklist. Use `/ticket-batch` when you specifically want rollup/individual preview infrastructure with port management.
+> **Note on `/ticket-chain` in Copilot:** the Copilot version of `/ticket-chain` is single-ticket only. Use `/ticket-batch` when you need to process multiple tickets together with preview infrastructure and port management. For the full multi-ticket chain experience (dependency graphs, wave execution, consolidated review), use Claude Code's `/ticket-chain`.
 
 ## Input
 

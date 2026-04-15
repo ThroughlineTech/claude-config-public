@@ -1,7 +1,7 @@
 ---
 mode: agent
 description: Transform a Claude command file in commands/ into a Copilot prompt in copilot-prompts/ with maximum behavioral compatibility
-argument-hint: 'commands/<command>.md [copilot-prompts/<prompt>.prompt.md] [--dry-run]'
+argument-hint: 'commands/<command>.md [copilot-prompts/<prompt>.prompt.md] [--dry-run] | --all [--dry-run]'
 ---
 
 # Sync Claude Command to Copilot Prompt

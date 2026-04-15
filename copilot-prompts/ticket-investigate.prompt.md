@@ -141,7 +141,7 @@ TKT-001  "{title}"  risk: med   → implement 2nd: unblocks TKT-002 (declared de
 TKT-002  "{title}"  risk: low   → implement 3rd: depends on TKT-001; shares {shared-file}
 
 Next: /ta TKT-005, then /ta TKT-001, then /ta TKT-002
-Or:   /tch 5 1 2 --ship   to implement and ship all in this order
+Or:   /tch TKT-005 --ship, then /tch TKT-001 --ship, then /tch TKT-002 --ship   (one at a time in order)
 ```
 
 Each line includes: ticket ID, quoted title, risk level, position, and one-line rationale.
