@@ -103,16 +103,25 @@ Apply these overrides for known workflow decisions.
   - --order-only
   - --in-given-order
   - --auto
+- In ordering output next-step suggestions, reference `/tch` as per-ticket single calls (e.g., `/tch TKT-001 --ship, then /tch TKT-002 --ship`). Never suggest multi-ticket `/tch` form (e.g., `/tch 1 2 3 --ship`) — the Copilot chain is single-ticket only.
 
 2. ticket-chain
 - Copilot target should be single-ticket orchestration by default.
-- Accept one ticket ID plus optional --ship.
+- Accept one ticket ID plus optional --dry-run or --ship. Do not advertise multi-ticket syntax.
 - Flow:
   - If status is open, investigate first.
   - Then implement and review.
   - If --ship, continue through ship steps automatically.
 - Include a quick plan-drift check before implementation.
 - If failure or major architecture drift occurs, instruct rerunning investigate on remaining tickets before continuing.
+- Prowl: conditional — use if CLAUDE.md API key is accessible, otherwise print summary prominently.
+
+3. ticket-batch
+- Source contains a "prefer /ticket-chain" recommendation. Adapt this note for Copilot context:
+  - The Copilot version of /ticket-chain is single-ticket only.
+  - /ticket-batch is therefore the correct tool for multi-ticket workflows in Copilot.
+  - Rewrite the recommendation as: "Note on /ticket-chain in Copilot: the Copilot version of /ticket-chain is single-ticket only. Use /ticket-batch when you need to process multiple tickets together with preview infrastructure and port management. For the full multi-ticket chain experience (dependency graphs, wave execution, consolidated review), use Claude Code's /ticket-chain."
+- Prowl: conditional (same as ticket-chain above).
 
 ## Output format
 
