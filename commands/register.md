@@ -9,8 +9,17 @@ The user is registering a target machine and repo for subsequent `/send` and `/d
 
 Parse `$ARGUMENTS` as two whitespace-separated tokens: `<machine>` and `<repo>`.
 
-If either token is missing, tell the user:
-> Usage: `/register <machine> <repo>`. Use `/machines` to see available targets and `/repos <machine>` to see repos on a given machine.
+If no arguments are given, invoke Bash:
+
+```
+~/bin/intercom-session get
+```
+
+If the output contains `TARGET_MACHINE` and `TARGET_REPO`, report the current registration to the user:
+> Registered: `<machine>/<repo>`
+
+If there is no session registered, tell the user:
+> No target registered. Use `/register <machine> <repo>` to set one.
 
 Otherwise invoke Bash:
 

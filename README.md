@@ -177,9 +177,9 @@ Start with **[docs/00-overview.md](docs/00-overview.md)** if you've never seen t
 | Understand *why* it's designed this way | [10-design-decisions.md](docs/10-design-decisions.md) |
 | Keep the repo healthy over time | [11-maintenance.md](docs/11-maintenance.md) |
 
-## This repo is private
+## Keep your fork private
 
-**Do not make this repo public.** The `CLAUDE.md` contains a Prowl API key for push notifications, and the `plans/` directory contains in-progress design work on various projects. See [docs/09-faq.md](docs/09-faq.md) for what to do if you ever want to share the workflow publicly (short answer: split it into two repos; do not just flip the visibility switch).
+If you fork this repo for personal use, **keep your fork private** once you add real credentials. `CLAUDE.md` is where your Prowl API key lives, and `plans/` will accumulate in-progress design work. This public copy has the key redacted and `plans/` empty — your personal fork will not.
 
 ## Platform support
 
