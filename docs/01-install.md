@@ -151,7 +151,7 @@ Run it with `-x` (`bash -x install.sh`) if you want to see every step, or read t
 4. **Detect platform** (`Darwin` → mac, `Linux` → mac for settings purposes, `MINGW*`/`MSYS*`/`CYGWIN*` → windows).
 5. **Merge settings.json** using jq: combine `settings.base.json` with `settings.{platform}.json`, concatenate the `permissions.allow` and `permissions.deny` arrays, write the result to `~/.claude/settings.json`. Backs up the existing file first.
 6. **Generate** `copilot-prompts/claude-global.instructions.md` from `CLAUDE.md` by prepending `---\napplyTo: "**"\n---\n\n` frontmatter. This file is gitignored (regenerated on every install — `CLAUDE.md` is the single source of truth).
-7. **Symlink** `copilot-prompts/run-brief.prompt.md` and `copilot-prompts/claude-global.instructions.md` into VS Code's user prompts directory if VS Code is detected:
+7. **Symlink every file in `copilot-prompts/`** into VS Code's user prompts directory if VS Code is detected (loops over all `*.md` files, so new prompts are picked up automatically on re-install):
    - Mac: `~/Library/Application Support/Code/User/prompts/`
    - Linux: `~/.config/Code/User/prompts/`
    - Windows: `%APPDATA%/Code/User/prompts/`
@@ -167,6 +167,23 @@ Run it with `-x` (`bash -x install.sh`) if you want to see every step, or read t
 - **Does not touch VS Code `settings.json`.** The Copilot wiring uses the instructions file mechanism; no JSON edits are needed.
 - **Does not modify any existing project's files.** Per-project bootstrapping happens via `/ticket-install` inside each project, not via this global installer.
 - **Does not auto-update the repo.** You run `git pull` yourself (or fold it into `sync-repos`).
+
+## Intercom bootstrap (MQTT era)
+
+`install.sh` always runs an intercom-setup block after the Copilot wiring:
+
+1. Symlinks every file in `bin/` into `~/bin/` using the same idempotent `link()` helper. This puts `send-job`, `intercom-session`, `intercom-machines`, `intercom-repos`, `intercom-inbox-mutate`, and `intercom-inbox-listener` on a well-known absolute path that the slash commands rely on.
+2. Installs `hooks/surface-intercom-replies.sh` to `~/.claude/hooks/surface-intercom-replies.sh` (symlink). This hook is registered in `settings.base.json` as a `UserPromptSubmit` hook.
+3. Checks for `mosquitto_pub` on PATH. If missing, prints install hints and continues — the symlinks are still in place for when mosquitto is installed later.
+4. Checks for `~/.config/intercom/creds`. If absent and stdin is interactive, prompts for `MQTT_HOST`, `MQTT_PORT` (default 1883), `MQTT_USER`, `MQTT_PASS` and writes the file (chmod 600). Skipped in non-interactive mode.
+5. **Windows only**: renders `windows/intercom-inbox-listener.xml.template` → `windows/intercom-inbox-listener.xml.rendered` (substituting `$USERNAME`) and registers the Task Scheduler task via `schtasks /Create /XML ... /TN intercom-inbox-listener /F`.
+
+Prerequisites:
+
+- **mosquitto-clients** — `brew install mosquitto` (Mac) / `winget install cedalo.mosquitto` (Windows) / `sudo apt install mosquitto-clients` (Linux). Without this, helpers are installed but won't connect to the broker.
+- **MQTT broker** — accessible from the machine (Tailscale IP or direct hostname). You provide the coordinates at the creds prompt.
+
+For creds rotation, Task Scheduler management, hook troubleshooting, and teardown, see [intercom-runbook.md](intercom-runbook.md).
 
 ## Re-installing (safe at any time)
 

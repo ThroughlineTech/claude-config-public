@@ -8,6 +8,7 @@
       "Bash(taskkill:*)",
       "Bash(where:*)",
       "Bash(wsl:*)",
+      "Bash(schtasks:*)",
       "Read(/c/Users/**)",
       "Read(/c/src/**)"
     ]

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# intercom-repos — list git repos on a remote intercom receiver, mtime-sorted.
+#
+# Usage:
+#   intercom-repos <machine> [n]
+#
+# Publishes to control/<machine>/list-repos (with optional {n}), subscribes to
+# replies/<machine>/control/list-repos for up to $INTERCOM_REPOS_TIMEOUT
+# seconds (default 10), prints a table of (name, path, mtime).
+
+set -euo pipefail
+export PATH="/c/Program Files/mosquitto:${LOCALAPPDATA:-}/Microsoft/WinGet/Links:/usr/bin:/bin:$PATH"
+# shellcheck disable=SC1090
+source "$HOME/.config/intercom/creds"
+
+[ $# -ge 1 ] || { echo "usage: intercom-repos <machine> [n]" >&2; exit 2; }
+
+MACHINE="$1"
+N="${2:-}"
+TIMEOUT="${INTERCOM_REPOS_TIMEOUT:-10}"
+
+# Build payload.
+if [ -n "$N" ]; then
+  PAYLOAD=$(jq -nc --argjson n "$N" '{n:$n}')
+else
+  PAYLOAD='{}'
+fi
+
+tmpfile=$(mktemp)
+trap 'rm -f "$tmpfile"' EXIT
+
+# Subscribe first. -C 1 exits after one message. -W is timeout (seconds).
+mosquitto_sub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" \
+  -i "windows-dispatcher-repos-$$" \
+  -q 1 -t "replies/${MACHINE}/control/list-repos" \
+  -C 1 -W "$TIMEOUT" > "$tmpfile" &
+SUB_PID=$!
+
+sleep 0.3
+
+mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" \
+  -q 1 -t "control/${MACHINE}/list-repos" -m "$PAYLOAD"
+
+wait "$SUB_PID" 2>/dev/null || true
+
+if [ ! -s "$tmpfile" ]; then
+  echo "(no response from $MACHINE in ${TIMEOUT}s — is the receiver loaded?)"
+  exit 0
+fi
+
+count=$(jq -r '.repos | length' "$tmpfile" 2>/dev/null || echo 0)
+if [ "$count" = "0" ]; then
+  echo "(no repos found under \$HOME/src on $MACHINE)"
+  exit 0
+fi
+
+printf '%-28s  %-60s  %s\n' NAME PATH MTIME
+jq -r '.repos[] | "\(.name)\t\(.path)\t\(.mtime_iso)"' "$tmpfile" | \
+while IFS=$'\t' read -r name path mtime; do
+  printf '%-28s  %-60s  %s\n' "$name" "$path" "$mtime"
+done

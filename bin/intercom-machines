@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# intercom-machines — list connected intercom receivers via query/response.
+#
+# Publishes to control/registry/query, subscribes to registry/# for
+# $INTERCOM_MACHINES_TIMEOUT seconds (default 2), renders a table.
+#
+# Exit 0 always (absence of receivers is not an error).
+
+set -euo pipefail
+export PATH="/c/Program Files/mosquitto:${LOCALAPPDATA:-}/Microsoft/WinGet/Links:/usr/bin:/bin:$PATH"
+# shellcheck disable=SC1090
+source "$HOME/.config/intercom/creds"
+
+TIMEOUT="${INTERCOM_MACHINES_TIMEOUT:-2}"
+tmpfile=$(mktemp)
+trap 'rm -f "$tmpfile"' EXIT
+
+# Start subscriber in background; give it a moment to connect before querying.
+mosquitto_sub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" \
+  -i "windows-dispatcher-machines-$$" \
+  -q 1 -t 'registry/#' -F '%j' > "$tmpfile" &
+SUB_PID=$!
+
+sleep 0.3
+
+mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" \
+  -q 1 -t "control/registry/query" -m "{}"
+
+sleep "$TIMEOUT"
+
+kill "$SUB_PID" 2>/dev/null || true
+wait "$SUB_PID" 2>/dev/null || true
+
+if [ ! -s "$tmpfile" ]; then
+  echo "(no intercom receivers responded in ${TIMEOUT}s)"
+  exit 0
+fi
+
+# Extract + dedupe by machine/repo, render.
+printf '%-12s  %-20s  %-50s  %s\n' MACHINE REPO REPO_PATH STARTED_AT
+while IFS= read -r line; do
+  inner=$(printf '%s' "$line" | jq -r '.payload // empty' 2>/dev/null)
+  [ -n "$inner" ] || continue
+  parsed=$(printf '%s' "$inner" | jq -c . 2>/dev/null) || continue
+  m=$(printf '%s' "$parsed" | jq -r '.machine // "?"')
+  r=$(printf '%s' "$parsed" | jq -r '.repo // "?"')
+  rp=$(printf '%s' "$parsed" | jq -r '.repo_path // "?"')
+  sa=$(printf '%s' "$parsed" | jq -r '.started_at // "?"')
+  printf '%s\t%s\t%s\t%s\n' "$m" "$r" "$rp" "$sa"
+done < "$tmpfile" | sort -u | while IFS=$'\t' read -r m r rp sa; do
+  printf '%-12s  %-20s  %-50s  %s\n' "$m" "$r" "$rp" "$sa"
+done

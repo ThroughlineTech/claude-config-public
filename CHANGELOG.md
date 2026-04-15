@@ -2,6 +2,49 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.8] — 2026-04-15
+
+### Added
+
+- **Full Copilot prompt suite** — all 17 core ticket workflow commands (`ticket-new` through `ticket-install`) are now synced to `copilot-prompts/` as `ticket-*.prompt.md` files, using the three-bucket compatibility model (Preserved / Adapted / Unsupported). Alias short-forms (`tn`, `tch`, `tsh`, etc.) are also present as thin delegates that reference the full prompt. All files are symlinked into VS Code's user prompts directory on install, making the full ticket workflow available in Copilot Chat.
+- **`sync-claude-command` Copilot prompt** (`copilot-prompts/sync-claude-command.prompt.md`) — migration agent that keeps Copilot prompts aligned with Claude command definitions. Accepts a single source file or `--all` to refresh all non-alias commands in one pass. Alias files are excluded automatically (they're thin delegates; the canonical prompt changing doesn't require the alias to change). Supports `--dry-run` for preview-without-write.
+- **`install.sh` now symlinks all of `copilot-prompts/`** — the VS Code Copilot wiring section now loops over all `*.md` files in `copilot-prompts/` instead of hardcoding two specific files. New prompts added to `copilot-prompts/` are picked up automatically on the next `bash install.sh` run.
+
+### Changed
+
+- **`docs/04-architecture.md`** — Layer 1 and Layer 2 diagrams updated to reflect the full `copilot-prompts/` suite; component table includes `sync-claude-command.prompt.md` and the ticket prompt files.
+- **`docs/01-install.md`** — step 7 updated to describe the per-file loop rather than two hardcoded symlinks.
+- **`docs/11-maintenance.md`** — "When you edit a command" now includes instructions for running `sync-claude-command` (or `--all`) and committing the updated Copilot prompt in the same commit.
+
+## [0.2.7] — 2026-04-14
+
+### Added
+
+- **MQTT intercom promotion** — the five slash commands (`/register`, `/send`, `/draft`, `/machines`, `/repos`) and six dispatcher helpers (`send-job`, `intercom-session`, `intercom-machines`, `intercom-repos`, `intercom-inbox-mutate`, `intercom-inbox-listener`) from the `mqtt-pivot` branch of [claude-intercom](https://github.com/danrichardson/claude-intercom) are now committed directly in this repo under `bin/`. `install.sh` symlinks them into `~/bin/` via the existing `link()` helper on every platform.
+- **UserPromptSubmit hook** — `hooks/surface-intercom-replies.sh` is installed to `~/.claude/hooks/` and registered in `settings.base.json` so unread inbox replies surface at the top of every Claude Code response. The hook exits cleanly when the inbox file doesn't exist (safe on non-dispatcher machines).
+- **Task Scheduler auto-registration (Windows)** — `windows/intercom-inbox-listener.xml.template` (with `{{WINDOWS_USER}}` placeholder) is rendered at install time to `windows/intercom-inbox-listener.xml.rendered` (gitignored) and registered via `schtasks /Create /XML ... /TN intercom-inbox-listener /F`. Idempotent: re-running install re-registers with `/F`.
+- **Creds-file prompt** — `install.sh` prompts for `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS` and writes `~/.config/intercom/creds` (chmod 600) if the file is absent. Skipped in non-interactive mode.
+- **`Bash(mosquitto_pub:*)` and `Bash(mosquitto_sub:*)`** added to base permissions; **`Bash(schtasks:*)`** added to Windows permissions.
+
+### Removed (supersedes 0.2.6)
+
+- **HTTP-era scaffolding removed** — `mcp/intercom.mcp.json.template`, `launchd/com.intercom.worker.plist.template`, `systemd/intercom-worker.service.template`, `secrets/.env.example` are deleted. The TKT-001 intercom block in `install.sh` (clone/bun/MCP/daemon wiring) is replaced by the MQTT-era block. `commands/list-messages.md` and `commands/get-message.md` are removed (replies surface via hook now).
+- **PII fix applied** — the four helpers that hardcoded `/c/Users/fubar/AppData/Local/Microsoft/WinGet/Links` now use `${LOCALAPPDATA}/Microsoft/WinGet/Links` (portable across any Windows username; Git Bash sets `$LOCALAPPDATA` automatically).
+
+## [0.2.6] — 2026-04-14
+
+### Added
+
+- **Intercom one-shot bootstrap** — `install.sh` now clones [claude-intercom](https://github.com/danrichardson/claude-intercom) at a pinned tag (`INTERCOM_TAG`, default `pre-claude-config-merge`) into `$INTERCOM_PATH` (default `~/src/claude-intercom`), runs `bun install`, and renders `mcp/intercom.mcp.json.template` to a user-level `~/.claude/.mcp.json` (project-local available on prompt). Prompts for `INTERCOM_SECRET`/`BROKER_HOST`/`CLIENT_ROLE`/`PROWL_KEY`, offers to persist to `secrets/.env` (gitignored, chmod 600). On macOS offers to install the worker daemon via launchd (default yes); on Linux via systemd --user (default no); skipped on Windows. Idempotent: re-running is a clean no-op when the pin, lockfile, and rendered configs haven't changed. Guarded by `command -v bun && command -v git` — machines without bun get a clean skip message. Templates live in [mcp/](../mcp/), [launchd/](../launchd/), [systemd/](../systemd/); runbook at [docs/intercom-runbook.md](../docs/intercom-runbook.md).
+- **`Bash(bun:*)`** added to base permissions; **`Bash(launchctl:*)`** and **`Bash(systemctl:*)`** added to Mac permissions.
+
+## [0.2.5] — 2026-04-14
+
+### Added
+
+- **Intercom slash commands** — `/register`, `/send`, `/draft`, `/list-messages`, `/get-message`, `/machines`, `/repos` wrap the Claude Intercom MCP server. Lets a Claude Code session delegate work to another machine over a Tailnet broker: `/register mac-mini ~/src/foo` sets the target, `/send "run tests"` dispatches, responses land in the inbox. `/draft` composes a structured prompt and asks for approval before dispatch. See [commands/README.md](../commands/README.md#intercom-commands-cross-machine-messaging).
+- **`--prowl` universal opt-in flag** — any slash command or freeform request can append `--prowl` to get an end-of-task Prowl notification, regardless of whether that command prowls by default. Commands that already prowl (`/tch`, `/tb`, `/tp`, `/ticket-collect`) treat it as a no-op. Documented in [CLAUDE.md](../CLAUDE.md) under Universal Conventions.
+
 ## [0.2.4] — 2026-04-13
 
 ### Added

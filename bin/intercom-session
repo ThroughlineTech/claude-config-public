@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# intercom-session — manage the registered dispatch target.
+#
+# Usage:
+#   intercom-session get                     — print the session file (TARGET_MACHINE, TARGET_REPO)
+#   intercom-session set <machine> <repo>    — write the session file
+#   intercom-session clear                   — remove the session file
+#
+# Exit codes:
+#   0  — ok
+#   1  — no session registered (on `get` when file is missing)
+#   2  — usage error
+
+set -euo pipefail
+
+FILE="$HOME/.config/intercom/session"
+cmd="${1:-get}"
+
+case "$cmd" in
+  get)
+    if [ ! -f "$FILE" ]; then
+      echo "(no session registered — run: /register <machine> <repo>)" >&2
+      exit 1
+    fi
+    cat "$FILE"
+    ;;
+  set)
+    [ $# -eq 3 ] || { echo "usage: intercom-session set <machine> <repo>" >&2; exit 2; }
+    mkdir -p "$(dirname "$FILE")"
+    {
+      printf 'TARGET_MACHINE=%s\n' "$2"
+      printf 'TARGET_REPO=%s\n' "$3"
+    } > "$FILE"
+    printf 'registered: TARGET_MACHINE=%s TARGET_REPO=%s\n' "$2" "$3"
+    ;;
+  clear)
+    rm -f "$FILE"
+    echo "cleared"
+    ;;
+  *)
+    echo "usage: intercom-session {get|set <machine> <repo>|clear}" >&2
+    exit 2
+    ;;
+esac

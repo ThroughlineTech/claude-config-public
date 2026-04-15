@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="/c/Program Files/mosquitto:/c/Users/fubar/AppData/Local/Microsoft/WinGet/Links:/usr/bin:/bin:$PATH"
+# shellcheck disable=SC1090
+source "$HOME/.config/intercom/creds"
+
+mkdir -p "$HOME/.local/state/intercom" "$HOME/.intercom/responses"
+
+# Disable pipefail inside the restart loop — the loop itself is the error
+# handler, so pipeline failures should restart rather than exit the script.
+set +e
+
+# Self-healing loop: restart mosquitto_sub automatically on any exit.
+# MQTT persistent session (-c) ensures the broker queues QoS-1 messages
+# while we're briefly disconnected, so no messages are lost across restarts.
+# A clean shutdown (schtasks /end, logoff) terminates the whole process tree
+# via wscript.exe, which does NOT trigger the loop — the entire bash process
+# is killed, not just mosquitto_sub.
+while true; do
+  # Pipe mosquitto_sub through the auto-save mutator, then append to inbox.jsonl.
+  # The mutator writes large .result payloads to ~/.intercom/responses/ and
+  # replaces them with a pointer before the line lands in the inbox.
+  mosquitto_sub \
+    -h "$MQTT_HOST" -p "$MQTT_PORT" \
+    -u "$MQTT_USER" -P "$MQTT_PASS" \
+    -i windows-dispatcher-listener -c \
+    -q 1 -t 'replies/#' -F '%j' \
+  | "$HOME/bin/intercom-inbox-mutate" \
+    >> "$HOME/.local/state/intercom/inbox.jsonl"
+  echo "[intercom] listener exited (code $?), restarting in 5s..." >&2
+  sleep 5
+done

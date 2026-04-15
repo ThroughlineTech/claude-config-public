@@ -132,7 +132,7 @@ For non-trivial changes, run and test locally before pushing. It's much easier t
 
 ### Don't commit secrets
 
-`CLAUDE.md` is the most likely place to accidentally commit a secret (push notification keys, API tokens, etc.). If you put a secret directly in `CLAUDE.md`, your fork must be private. To keep your fork public, store secrets in `~/.claude/secrets.md` (gitignored, machine-local) and reference them from `CLAUDE.md` indirectly. See [09-faq.md](09-faq.md) for the "should this be in a gitignored secrets file?" discussion.
+`CLAUDE.md` currently contains the Prowl API key. That's intentional for a private repo. But if you ever add a new secret (e.g. a Figma API key, an OpenAI key, anything), think twice before committing it. See [09-faq.md](09-faq.md) for the "should this be in a gitignored secrets file?" discussion.
 
 ## Debugging a syncing issue
 

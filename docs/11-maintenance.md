@@ -106,14 +106,15 @@ Follow [06-adding-a-new-machine.md](06-adding-a-new-machine.md). 5 minutes. Noth
 1. Make sure any in-progress plans on that machine are pushed: `cd ~/src/claude-config && git status && git push`
 2. Nothing else. The repo is the source of truth; once you've confirmed it's pushed, the local machine can be wiped without losing anything.
 
-### When you rotate a notification API key (Prowl, Pushover, ntfy, etc.)
+### When you rotate your Prowl API key
 
-1. Generate a new key with your provider
-2. Update `CLAUDE.md` (if you keep the key directly there in a private fork) OR `~/.claude/secrets.md` (if you keep secrets out of the repo)
-3. If you edited `CLAUDE.md`: commit, push, on every machine `git pull && bash install.sh` (re-install regenerates the Copilot instructions file)
-4. If you edited `~/.claude/secrets.md`: do the same edit on every machine manually (it's not synced)
-5. Test: trigger a notification from both Claude Code and Copilot Chat on each machine
-6. Invalidate the old key with your provider once you've confirmed the new one works
+1. Generate a new key at prowlapp.com
+2. Edit `CLAUDE.md` and `copilot-prompts/run-brief.prompt.md` — replace the old key with the new one everywhere
+3. Commit: `git commit -am "rotate: new prowl API key"`
+4. Push
+5. On every machine: `git pull && bash install.sh`
+6. Test: "send me a test prowl" in both Claude Code and Copilot Chat on each machine
+7. Invalidate the old key at prowlapp.com once you've confirmed the new one works
 
 ## Per-change events (whenever you edit something)
 
@@ -128,6 +129,20 @@ Same as CLAUDE.md — re-run `install.sh` to regenerate `~/.claude/settings.json
 ### When you edit a command or brief template
 
 Commit. Push. On other machines: pull. No re-install needed (symlinked files are live).
+
+If the edited file is a `commands/ticket-*.md` (or any non-alias command), also sync its Copilot counterpart so Copilot Chat stays behaviorally current:
+
+```
+# In Claude Code or Copilot Chat:
+/sync-claude-command commands/<name>.md
+
+# Or to refresh everything at once:
+/sync-claude-command --all
+```
+
+Alias files (`tn.md`, `tch.md`, etc.) do not need syncing — their Copilot counterparts are thin delegates that never change when the canonical command changes.
+
+The sync generates or updates `copilot-prompts/<name>.prompt.md` and prints a Preserved / Adapted / Unsupported report. Commit the updated prompt file in the same commit as the command change.
 
 ### When you add a new plan via plan mode
 

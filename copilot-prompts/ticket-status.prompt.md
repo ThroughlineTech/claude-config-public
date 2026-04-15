@@ -1,0 +1,94 @@
+---
+mode: agent
+description: Show ticket lifecycle timeline (no arg = active set)
+argument-hint: '[TKT-XXX]'
+---
+
+# Show a Ticket's Lifecycle Timeline
+
+Render a human-readable timeline of everything that's happened to a ticket. Useful when returning to a project after time away.
+
+## Input
+
+Argument: `{ID}` (e.g. `TKT-005`) — optional.
+
+**ID shorthand:** If the argument is a bare number (e.g., `5` or `26`), resolve it to a full ticket ID: read the ticket prefix from `.claude/ticket-config.md`, scan existing ticket files to determine zero-padding width, and expand (e.g., `5` → `TKT-005`).
+
+If no argument given: show a one-line summary for every ticket in the **active set** — files directly under `{tickets-dir}/` only. Do NOT recurse into `shipped/`, `deferred/`, or `wontfix/`.
+
+When a specific `{ID}` is given, **locate the ticket file** by checking `{tickets-dir}/{ID}.md` first, then the terminal subfolders. Render the timeline wherever it is found — this command is read-only and works on terminal tickets too.
+
+## Pre-flight Checks
+
+- Read `.claude/ticket-config.md` to find the tickets directory.
+
+## Steps
+
+0. **Auto-reap preflight (silent):** Walk `.worktrees/ticket-*/`. Reap stale worktrees (tickets in terminal folders or missing). If anything was reaped, print a one-line note ("auto-reaped N stale worktrees"). If nothing was reaped, say nothing.
+
+1. **Read `.claude/ticket-config.md`** to find the tickets directory.
+
+2. **Read the ticket file.** Parse:
+   - Frontmatter: id, title, type, status, priority, branch, created, updated
+   - Delegation Log section (if present)
+   - Which sections have content (Investigation, Proposed Solution, Implementation Plan, Files Changed, Test Report, Verification Checklist, Peer Review)
+
+3. **Reconstruct the lifecycle** from these signals:
+   - Created → status was `open`
+   - Investigation filled → an investigate phase ran
+   - Status went `proposed` → investigation accepted
+   - Branch field set → `/ticket-approve` or `/ticket-delegate ... implement` ran
+   - Files Changed filled → implementation done
+   - Verification Checklist filled → review done
+   - Status `shipped` → ticket shipped
+
+   Use Delegation Log entries (if present) to attribute phases to specific tools/models/timestamps.
+
+4. **Render the timeline** as a checklist with timestamps and attributions where known:
+
+   ```
+   TKT-005: Redesign project picker dropdown
+     Status: delegated      Branch: ticket/tkt-005-redesign-project-picker
+     Type: enhancement      Priority: medium
+     Created: 2026-04-05    Updated: 2026-04-07
+
+     Lifecycle:
+       ✓ created                                                2026-04-05
+       ✓ investigated (Claude Code)                             2026-04-05
+       ✓ verified-investigate (Gemini via Copilot)              2026-04-06
+           → 3 issues raised, all addressed in v2
+       ✓ investigated v2 (Claude Code, revised)                 2026-04-06
+       ✓ approved → branch created                              2026-04-06
+       → delegated (implement) — awaiting Gemini                2026-04-07
+       ⋯ collect pending
+       ⋯ review pending
+       ⋯ ship pending
+
+     Next action:
+       Run /run-brief in Copilot Chat (with Gemini) on:
+         tickets/TKT-005.implement.brief.md
+       Then come back and run: /ticket-collect TKT-005
+   ```
+
+5. **For the active-set view** (no argument), render a one-line-per-ticket summary:
+
+   ```
+   Active tickets in this project:
+     TKT-003  delegated     verify-implement (Gemini reviewing)
+     TKT-005  delegated     implement (Gemini implementing)
+     TKT-007  proposed      ready for /ticket-approve
+     TKT-008  open          ready for /ticket-investigate
+
+   Run /ticket-status {ID} for the full timeline of any ticket.
+   ```
+
+## Rules
+
+- This command is **read-only**. It does not modify the ticket file or any other state.
+- If the ticket has no Delegation Log, infer phases from which sections are filled in (best-effort timeline without timestamps).
+- Always show the "Next action" line — it's the most important part for someone returning cold.
+- Be terse. The point is to reorient quickly, not to read paragraphs.
+
+## Compatibility Notes
+
+- Auto-reap preflight: source behavior is an inline call to the `/ticket-cleanup` no-arg logic. Preserved as an explicit inline step in this prompt rather than a slash command dispatch.

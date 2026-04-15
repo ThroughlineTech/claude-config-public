@@ -178,7 +178,7 @@ If the pattern is there but still being prompted, Claude Code may be checking so
 
 ### VS Code Settings Sync pushed a Mac absolute path to Windows
 
-**Symptom**: On Windows, VS Code complains about a path that starts with `/Users/...` (a Mac-style absolute path that doesn't exist on Windows)
+**Symptom**: On Windows, VS Code complains about a path that starts with `/Users/plympton/...`
 
 **Cause**: Earlier in this repo's history, we tried using `"github.copilot.chat.codeGeneration.instructions"` with an absolute file path. VS Code Settings Sync then pushed that Mac-absolute path to Windows, where it's nonsensical.
 
@@ -277,6 +277,29 @@ cp -R ~/.claude.saved.*/projects ~/.claude/projects
 ```
 
 Delete `~/.claude.saved.*` when you're confident everything works.
+
+## Intercom
+
+For ops procedures (creds rotation, Task Scheduler management, hook troubleshooting, teardown), see [intercom-runbook.md](intercom-runbook.md). For runtime issues (messages not routing, stale peers in `/machines`, receiver not responding), see the [product repo's dogfooding guide](https://github.com/danrichardson/claude-intercom/blob/main/docs/dogfooding-guide.md#troubleshooting).
+
+### Install-time failures
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `mosquitto_pub not found` warning | mosquitto-clients not installed | `brew install mosquitto` / `winget install cedalo.mosquitto` / `sudo apt install mosquitto-clients` |
+| `schtasks` fails on Windows | Running as non-admin, or Task Scheduler service stopped | Run Git Bash as admin for install, or register task manually |
+| `~/.config/intercom/creds` missing after install | Non-interactive mode or Ctrl+C at prompt | Create manually: see [intercom-runbook.md](intercom-runbook.md#creds-file-layout) |
+| Hook not registered in settings.json | `jq` was missing during settings merge | Install jq, re-run `install.sh` |
+
+### Runtime failures (MQTT era)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `/machines` returns `(no intercom receivers responded)` | Broker unreachable, creds wrong, or receiver not running | Check `~/.config/intercom/creds`; ping broker; check receiver launchd/systemd status |
+| Replies not surfacing in Claude Code | Hook not installed or inbox.jsonl empty | `ls ~/.claude/hooks/surface-intercom-replies.sh`; check Task Scheduler status; see runbook |
+| Task Scheduler task not listed | Task not registered | Re-run `install.sh` on Windows, or register manually via `schtasks` |
+| Inbox cursor stuck (replies stop appearing) | Torn line at end of inbox.jsonl (listener killed mid-write) | Listener will complete the line on next write; cursor auto-advances. Or `rm ~/.local/state/intercom/inbox.cursor` to reset |
+| Old `.mcp.json` intercom entry causing VS Code errors | Left over from HTTP-era install (TKT-001) | Re-run `install.sh` — it surgically removes `mcpServers.intercom` via `jq del()`|
 
 ## When troubleshooting doesn't help
 

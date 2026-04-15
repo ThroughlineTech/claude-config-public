@@ -14,6 +14,8 @@
       "Bash(swift:*)",
       "Bash(brew:*)",
       "Bash(system_profiler:*)",
+      "Bash(launchctl:*)",
+      "Bash(systemctl:*)",
       "Read(/Applications/**)",
       "Read(/Volumes/**)"
     ]

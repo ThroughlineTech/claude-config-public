@@ -43,7 +43,7 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 |---|---|
 | `/ticket-new "short description"` | Start tracking a new bug, feature, or enhancement |
 | `/ticket-list` | "Where am I? What's in flight?" (active-only; `--all` includes terminals) |
-| `/ticket-investigate TKT-001` | Have Claude Code explore the codebase and write a plan |
+| `/ticket-investigate TKT-001 [TKT-002 ...]` | Have Claude Code explore the codebase and write a plan; 2+ IDs → investigate all sequentially, then output recommended implementation order |
 | `/ticket-approve TKT-001` | Branch + implement the plan (Claude Code does the work) |
 | `/ticket-delegate TKT-001` | Delegate full lifecycle to another model (Gemini, etc.); batch: `/ticket-delegate 10 11 12 13` |
 | `/ticket-collect TKT-001` | Claude reviews delegated work; batch: `/ticket-collect 10 11 12 13` |
@@ -76,6 +76,22 @@ Gemini peer-reviews the diff → Claude Code ships
 
 See **[docs/03-delegation.md](docs/03-delegation.md)** for how this works, why it's designed this way, and how to use it.
 
+## Intercom subsystem: cross-machine messaging
+
+A second trick: any Claude Code session on any machine can dispatch work to any other machine via a shared MQTT broker. Send a prompt from your Windows workstation and have a Mac mini run `claude -p` against one of its local repos, then read the response in your Windows inbox. The dispatcher helpers and slash commands live here; the receiver runtime lives in the separate [claude-intercom](https://github.com/danrichardson/claude-intercom) repo.
+
+How it wires up:
+
+1. `install.sh` symlinks the 6 dispatcher helpers (`send-job`, `intercom-session`, `intercom-machines`, `intercom-repos`, `intercom-inbox-mutate`, `intercom-inbox-listener`) from `bin/` into `~/bin/`.
+2. Prompts for MQTT broker credentials (`MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS`) and writes them to `~/.config/intercom/creds` (chmod 600) if the file doesn't already exist.
+3. On Windows, renders `windows/intercom-inbox-listener.xml.template` → `windows/intercom-inbox-listener.xml.rendered` (substituting `$USERNAME`) and registers the Task Scheduler task that keeps the inbox listener running.
+4. Installs `hooks/surface-intercom-replies.sh` to `~/.claude/hooks/` and registers it as a `UserPromptSubmit` hook so unread inbox replies surface at the top of every Claude Code response.
+5. Five intercom slash commands — `/machines`, `/repos`, `/register`, `/send`, `/draft` — are in [commands/](commands/) and symlinked into `~/.claude/commands/` by install.sh.
+
+Upgrade cadence: pull the latest helpers from `claude-intercom`, commit to `bin/` here, re-run `./install.sh` on every machine. Symlinks propagate immediately — no re-install needed for in-place edits. See **[docs/intercom-runbook.md](docs/intercom-runbook.md)** for the full runbook (troubleshooting, creds rotation, Task Scheduler management, hook troubleshooting).
+
+Day-to-day usage lives in the runtime repo: **[claude-intercom/docs/dogfooding-guide.md](https://github.com/danrichardson/claude-intercom/blob/main/docs/dogfooding-guide.md)**.
+
 ## What's in the repo
 
 ```
@@ -93,6 +109,14 @@ claude-config/
     ticket-preview.md  ticket-batch.md  ticket-chain.md  ticket-ship.md
     ticket-defer.md  ticket-close.md  ticket-reopen.md  ticket-cleanup.md
     ticket-delegate.md  ticket-collect.md
+    machines.md  repos.md  register.md  send.md  draft.md
+
+  hooks/
+    surface-intercom-replies.sh      ← UserPromptSubmit hook, symlinked → ~/.claude/hooks/
+
+  windows/
+    intercom-inbox-listener.xml.template  ← Task Scheduler XML template ({{WINDOWS_USER}})
+    intercom-inbox-listener.xml.rendered  ← rendered at install time (gitignored)
 
   brief-templates/                   ← templates for cross-model delegation briefs
     README.md
@@ -107,6 +131,13 @@ claude-config/
 
   bin/
     claude-handoff                   ← ship the most recent plan to the other machine
+    sync-repos                       ← pull latest on all repos (cross-machine sync)
+    send-job                         ← dispatch a prompt to a remote machine via MQTT
+    intercom-session                 ← manage the registered dispatch target
+    intercom-machines                ← list connected intercom receivers
+    intercom-repos                   ← list repos on a remote machine
+    intercom-inbox-mutate            ← auto-archive large replies (stdin filter)
+    intercom-inbox-listener          ← subscribe to replies/#, append to inbox.jsonl
 
   settings.base.json                 ← universal Claude Code settings (allows, denies, env)
   settings.mac.json                  ← Mac-only settings additions
@@ -125,6 +156,7 @@ claude-config/
     09-faq.md                        ← questions you will ask in the future
     10-design-decisions.md           ← the "why this way" for non-obvious choices
     11-maintenance.md                ← ops cadence: what to do weekly/monthly/per-machine
+    intercom-runbook.md              ← pin/upgrade, secret rotation, worker ops
 ```
 
 ## Documentation map

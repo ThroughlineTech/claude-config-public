@@ -10,8 +10,8 @@ Personal dotfiles for Claude Code and Copilot Chat, plus a universal ticket work
 ### Why did I build this?
 See [00-overview.md](00-overview.md) for the full problem framing. Short version: before this, Claude Code config and ticket workflows were per-machine and per-project, Copilot didn't share context with Claude Code, and there was no clean way to mix models for different tasks. This repo fixes all of that.
 
-### Should this fork be private or public?
-The public template ships with no secrets and no personal data, so it's safe to fork publicly as-is. Whether YOUR fork should stay public depends on what you add to it — see "Secrets and privacy" below.
+### Why is it private?
+`CLAUDE.md` contains a Prowl API key, and `plans/` contains in-progress design work on various projects. Both are things you don't want publicly indexed. See "Should I make the repo public?" below for the answer if you ever want to.
 
 ### Can I delete this repo and start over?
 Sure, but why? The state in it is useful. If you mean "I want to rebuild the structure from scratch," you can, but the cost is re-writing all the commands and templates, and you'd lose the plan history. Better to edit in place.
@@ -85,52 +85,22 @@ Not currently. The ticket status flow assumes one delegation at a time. You coul
 
 ## Secrets and privacy
 
-### This is the public template — what's already been removed?
-The template ships with NO secrets and NO personal data. Specifically:
-- **No API keys** — `CLAUDE.md` is a customize-me template that describes the push notification pattern but tells you to add your own key
-- **No plans** — `plans/` is empty (just a `.gitkeep`)
-- **No project-specific allows** — `settings.{base,mac,windows}.json` contain only universal patterns; no references to specific projects, paths, or services
-- **No commit history with personal info** — the public template starts from a fresh `git init`
+### Should I make the repo public?
+Not as-is. `CLAUDE.md` has a Prowl API key and `plans/` has project-specific in-progress work. If you want to publish the *workflow* (commands, templates, install script) without those, the move is to split the repo in two:
 
-### Should I make MY fork public or private?
-Depends on what you put in it.
+- `claude-config-public` — commands, templates, install.sh, docs, a template CLAUDE.md without the key
+- `claude-config-private` — plans/, the real CLAUDE.md with the key, any other sensitive stuff
 
-- **Make it private if**: you commit API keys directly to `CLAUDE.md`, you commit plan files with project-specific design work, or you add settings entries that reveal private project paths.
-- **Make it public if**: you keep secrets in `~/.claude/secrets.md` (which is gitignored and lives outside the repo), you don't commit plans, and you keep settings entries to broad patterns that don't reveal personal info.
+Both would be cloned on each machine and install.sh would know how to find both. This is a meaningful amount of restructuring though, so only do it if you have an actual reason to publish.
 
-If in doubt, **start private**. You can always go public later by extracting secrets and rewriting history. Going from public to private after a leak is much harder.
+### What if my Prowl key leaks?
+Rotate it. Update `CLAUDE.md` in the repo with the new key, commit, push, re-install on every machine. The blast radius of a leaked key is limited to "random people can spam your phone with fake notifications" — it's not catastrophic but it's annoying, so rotate if it's ever exposed.
 
-### How do I handle secrets without committing them?
-Create `~/.claude/secrets.md` on each machine manually (it's already in `.gitignore`, so it'll never accidentally get committed). Store API keys, tokens, etc. there. In `CLAUDE.md`, instead of pasting the key directly, write something like:
-
-```
-The push notification API key is in ~/.claude/secrets.md under "Notifications".
-Read that file when you need to send a notification.
-```
-
-Claude Code and Copilot can read `~/.claude/secrets.md` like any other file. The file isn't synced between machines — you set it up manually per machine — but the *reference* to it lives in the synced `CLAUDE.md`, so the convention propagates.
-
-### What if my API key leaks?
-Rotate it. Generate a new key with your provider, update `CLAUDE.md` (or `~/.claude/secrets.md` if you used the secrets file approach) with the new key, commit (only if it's the secrets file path that changed, not the key itself), push, re-install on every machine. The blast radius of a leaked notification key is limited — usually just "spam to your phone until you rotate" — but rotate as soon as you notice exposure.
+### How do I handle additional secrets I don't want in the repo?
+Create `~/.claude/secrets.md` (gitignored already via `.gitignore`) on each machine manually. Add a rule to `CLAUDE.md` saying "if you need an API key for X, read `~/.claude/secrets.md`." The file isn't synced — you create it per machine — but the convention is.
 
 ### Git commit history has my email and name — is that a problem?
-For a public repo: maybe. Your name and email are in every commit you make. If you don't want that publicly searchable, configure git to use a privacy-preserving email (GitHub provides one at `<id>+<username>@users.noreply.github.com`):
-
-```bash
-git config user.email "12345+yourusername@users.noreply.github.com"
-git config user.name "Your Public Name"
-```
-
-Set this per-repo (not global) so your other repos still use your real email.
-
-### How do I clean an existing repo of secrets I accidentally committed?
-Three options, in increasing order of effort:
-
-1. **Rotate the leaked secret immediately.** Even before cleanup. Assume anything pushed publicly is permanently leaked.
-2. **Remove from current state**: `git rm <file> && git commit -m "remove leaked secret" && git push`. The file is gone from the working tree but still in history.
-3. **Nuke from history**: use `git filter-repo` (modern) or BFG Repo-Cleaner. Read the docs carefully — these rewrite history and require force-pushing.
-
-If the secret is in the most recent commit only, you can amend: `git rm <file> && git commit --amend && git push --force`. Don't force-push to a branch others have pulled.
+Only if the repo becomes public. For a private repo, it's fine. If you ever make parts of it public, you can rewrite history with `git filter-repo` to anonymize, or (easier) create a fresh repo with `git clone --depth 1` + `rm -rf .git && git init`.
 
 ## Sync and backup
 
@@ -168,7 +138,7 @@ You don't need to do it continuously. The docs describe the architecture, which 
 The `CLAUDE.md` and ticket files are plain markdown — any tool that reads them will work. The slash commands are Claude-Code-specific. The Copilot prompts are VS-Code-Copilot-specific. Cursor has its own rules system (`.cursorrules`) which you could generate from `CLAUDE.md` the same way we generate the Copilot instructions file. That'd be a small addition to `install.sh`.
 
 ### Can I share this with a colleague?
-Yes — that's exactly what this public template is for. Point them at the repo, they fork it, customize `CLAUDE.md` for their own preferences, run `bash install.sh`, and they're set. The infrastructure is fully transferable; only the customizations are personal.
+Yes, with a caveat: they'd need to fork it, remove your Prowl key from CLAUDE.md, and adapt the settings files to their platform. See [00-overview.md](00-overview.md) for what the system does at a conceptual level, and the full documentation for how to use it. The infrastructure is transferable; the specific secrets and preferences are not.
 
 ### How do I add a new brief template for a phase I just invented?
 Create `brief-templates/{phase}.md` (use existing templates as a model). Update `commands/ticket-delegate.md` to know about the phase (add it to the phase-specific preconditions table and any placeholder substitution logic). Commit, push, pull on other machines. No install re-run needed — templates are symlinked.

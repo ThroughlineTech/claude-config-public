@@ -52,13 +52,16 @@ All commands live in `commands/` in the repo and are symlinked into `~/.claude/c
 
 **Side effects**: None — read-only.
 
-## `/ticket-investigate TKT-NNN`
+## `/ticket-investigate TKT-NNN [TKT-MMM ...] [--in-given-order]`
 
-**Purpose**: Explore the codebase and write a plan for a ticket.
+**Purpose**: Explore the codebase and write a plan for one or more tickets. Multi-ticket input also produces a recommended implementation order based on what the investigations found.
 
-**Usage**: `/ticket-investigate TKT-005`
+**Usage**:
+- `/ticket-investigate TKT-005` — single ticket (existing behavior, unchanged)
+- `/ticket-investigate 1 2 5` — investigate all three sequentially, then output recommended `/ta` order
+- `/ticket-investigate 1 2 5 --in-given-order` — investigate in given order, skip ordering recommendation
 
-**What it does**:
+**Single-ticket mode**:
 - Verifies ticket status is `open`
 - Reads `CLAUDE.md` and `.claude/ticket-config.md` for project context
 - Reads the context docs listed in `ticket-config.md`
@@ -66,9 +69,19 @@ All commands live in `commands/` in the repo and are symlinked into `~/.claude/c
 - Writes into the ticket: Investigation section (findings), Proposed Solution section (approach), Implementation Plan section (concrete checklist)
 - Transitions status to `proposed`
 
-**Preconditions**: Ticket exists, status is `open`, project is bootstrapped.
+**Multi-ticket mode** (2+ IDs):
+- Pre-flight: locates all ticket files; stops if any are in terminal status (`shipped/`, `deferred/`, `wontfix/`)
+- Investigates each ticket sequentially (full single-ticket flow per ticket); already-`proposed` tickets are not re-investigated — their existing plans are read instead
+- Prints a progress summary after each ticket: `✓ TKT-001 investigated (1/3) — risk: low, files: 4`
+- Post-investigation ordering analysis: reads Investigation + Implementation Plan sections from all tickets, scores by: declared dependencies → risk/blast radius → shared-file conflicts → quick-win value → ticket ID
+- Outputs a recommended implementation order with one-line rationale per ticket and copy-pasteable `/ta` and `/tch` commands
 
-**Side effects**: Modifies the ticket file. Reads files in the codebase (read-only on source code).
+**Flags**:
+- `--in-given-order` — investigate in the given order; omit the ordering recommendation at the end. Bare numbers expand to full IDs using the same shorthand as single-ticket mode.
+
+**Preconditions**: All ticket files must exist and be in non-terminal status. Project must be bootstrapped. No clean-tree or main-branch requirement.
+
+**Side effects**: Modifies one or more ticket files (Investigation, Proposed Solution, Implementation Plan sections; status → `proposed`). Reads files in the codebase (read-only on source code). Does not create branches or worktrees.
 
 ## `/ticket-approve TKT-NNN`
 

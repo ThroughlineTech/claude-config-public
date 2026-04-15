@@ -1,0 +1,59 @@
+---
+mode: agent
+description: Create a new ticket in the current project
+argument-hint: '"short description"'
+---
+
+# Create a New Ticket
+
+You are creating a new ticket in the current project.
+
+## Input
+
+Argument: a short description of the bug, feature, or enhancement to create.
+
+## Pre-flight Checks
+
+- If `tickets/` does not exist or `.claude/ticket-config.md` does not exist, tell the user to run `/ticket-install` first and stop.
+
+## Steps
+
+1. **Read `.claude/ticket-config.md`** to learn the tickets directory and ID prefix (defaults: `tickets/`, `TKT-`).
+
+2. **Determine the next ticket ID:**
+   - List files **recursively** under the tickets directory matching `{PREFIX}*.md` — include terminal subfolders (`shipped/`, `deferred/`, `wontfix/`) so IDs are never reused.
+   - Find the highest number across all matches and increment by 1.
+   - If no tickets exist, start at `{PREFIX}001`.
+   - New ticket files are always created at the root of the tickets directory, never in a subfolder.
+
+3. **Gather info from the user's input:**
+   - Title (short, descriptive)
+   - Type: bug, feature, or enhancement
+   - Priority: low, medium, high, or critical (infer from context; default medium)
+   - Description
+   - Acceptance criteria (infer from the description if not explicit)
+   - **App / preview profile:** read the `## Preview profiles` section of `.claude/ticket-config.md`. If there are 2+ profiles, ask the user which one this ticket targets (show profile names + one-line description; default = profile marked `default: true`). If only 1 profile, use it silently. If no profiles, set `app: (none)`.
+
+4. **Create the ticket file** at `{tickets-dir}/{PREFIX}{NNN}.md` using `{tickets-dir}/TEMPLATE.md`:
+   - Fill in all header fields (id, title, type, status: open, priority, created date, updated date, app)
+   - Fill in Description and Acceptance Criteria
+   - Leave all agent sections empty
+
+5. **Output a summary:**
+   ```
+   Created {ID}: {title}
+   Type: {type} | Priority: {priority} | Status: open
+
+   Next: run /ticket-investigate {ID} to begin investigation
+   ```
+
+## Rules
+
+- Status must be `open` for new tickets.
+- Branch field is empty until investigation/approval.
+- Do NOT start investigating — just create the ticket.
+- Use today's date for created/updated.
+
+## Compatibility Notes
+
+- All source behaviors preserved exactly. No Copilot-specific adaptations required.

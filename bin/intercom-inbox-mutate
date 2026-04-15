@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# intercom-inbox-mutate — auto-save large replies.
+#
+# Reads envelope lines (mosquitto %j format) on stdin. For each line, if the
+# inner payload parses as JSON and has a .result field whose content exceeds
+# INTERCOM_MUTATE_THRESHOLD lines (default 50), write the full payload to
+# $INTERCOM_ARCHIVE_DIR (default ~/.intercom/responses) with frontmatter, and
+# replace .result in the inbox-bound envelope with a pointer.
+#
+# Invariants:
+#   - Envelopes that fail to parse at any step pass through unchanged.
+#   - Small payloads (<= threshold) pass through unchanged.
+#   - No line is dropped.
+#   - stdout is line-buffered: one output line per input line.
+
+set -euo pipefail
+
+# Ensure jq + core utils are findable under Task Scheduler invocation, where
+# PATH inherited from the TS process is minimal.
+export PATH="${LOCALAPPDATA:-}/Microsoft/WinGet/Links:/usr/bin:/bin:$PATH"
+
+THRESHOLD_LINES="${INTERCOM_MUTATE_THRESHOLD:-50}"
+ARCHIVE_DIR="${INTERCOM_ARCHIVE_DIR:-$HOME/.intercom/responses}"
+
+mutate_line() {
+  local line="$1"
+  local topic payload_str inner result n_lines ts status machine repo tsfile fname pointer new_inner new_line
+
+  topic=$(printf '%s' "$line" | jq -r '.topic // empty' 2>/dev/null) || { printf '%s\n' "$line"; return; }
+  [ -n "$topic" ] || { printf '%s\n' "$line"; return; }
+
+  payload_str=$(printf '%s' "$line" | jq -r '.payload // empty' 2>/dev/null) || { printf '%s\n' "$line"; return; }
+  [ -n "$payload_str" ] || { printf '%s\n' "$line"; return; }
+
+  inner=$(printf '%s' "$payload_str" | jq -c . 2>/dev/null) || { printf '%s\n' "$line"; return; }
+
+  result=$(printf '%s' "$inner" | jq -r '.result // empty' 2>/dev/null) || { printf '%s\n' "$line"; return; }
+  [ -n "$result" ] || { printf '%s\n' "$line"; return; }
+
+  # Count lines (force trailing newline so wc counts accurately).
+  n_lines=$(printf '%s\n' "$result" | wc -l | tr -d ' ')
+  if [ "$n_lines" -le "$THRESHOLD_LINES" ]; then
+    printf '%s\n' "$line"
+    return
+  fi
+
+  # Large — archive the full payload and mutate the envelope.
+  ts=$(printf '%s' "$line" | jq -r '.tst // empty' 2>/dev/null)
+  [ -z "$ts" ] && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  status=$(printf '%s' "$inner" | jq -r '.status // "unknown"' 2>/dev/null)
+  machine=$(printf '%s' "$topic" | awk -F/ '{print $2}')
+  repo=$(printf '%s' "$topic" | awk -F/ '{print $3}')
+  [ -z "$machine" ] && machine="unknown"
+  [ -z "$repo" ] && repo="unknown"
+  tsfile=$(date -u +%Y-%m-%d-%H%M%S)
+  mkdir -p "$ARCHIVE_DIR"
+  fname="$ARCHIVE_DIR/${tsfile}-${machine}-${repo}.md"
+
+  {
+    printf -- '---\nts: %s\ntopic: %s\nstatus: %s\n---\n\n' "$ts" "$topic" "$status"
+    printf '%s\n' "$result"
+  } > "$fname"
+
+  pointer="[full output (${n_lines} lines) saved to ${fname}]"
+  new_inner=$(printf '%s' "$inner" | jq -c --arg p "$pointer" '.result = $p')
+  new_line=$(printf '%s' "$line" | jq -c --arg p "$new_inner" '.payload = $p')
+  printf '%s\n' "$new_line"
+}
+
+while IFS= read -r line || [ -n "$line" ]; do
+  mutate_line "$line"
+done

@@ -3,6 +3,11 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "effortLevel": "max",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Read(*)",
@@ -35,6 +40,9 @@
       "Bash(node:*)",
       "Bash(python3:*)",
       "Bash(make:*)",
+      "Bash(bun:*)",
+      "Bash(mosquitto_pub:*)",
+      "Bash(mosquitto_sub:*)",
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:developer.apple.com)",
@@ -48,6 +56,18 @@
       "Bash(chmod:*)",
       "Bash(wget:*)",
       "Bash(sudo:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x \"$HOME/.claude/hooks/surface-intercom-replies.sh\" ] && \"$HOME/.claude/hooks/surface-intercom-replies.sh\""
+          }
+        ]
+      }
     ]
   },
   "extraKnownMarketplaces": {

@@ -28,6 +28,20 @@ Each file is a Claude Code slash command definition. The filename (minus `.md`) 
 
 **Short aliases** are generated on each machine by `install.sh` from [`aliases.map`](aliases.map) — `/tn`, `/tl`, `/ts`, `/ti`, `/ta`, `/tr`, `/tp`, `/tb`, `/tch`, `/tsh`, `/td`, `/tc`, `/tro`, `/tcl`. The generated wrapper `.md` files are gitignored (they're real files, not symlinks — the harness dedupes symlinked commands to a single entry).
 
+### Intercom commands (cross-machine messaging)
+
+These wrap the [Claude Intercom](https://github.com/...) MCP server to let Claude Code sessions delegate work to other machines over a Tailnet broker.
+
+| File | Command | What it does |
+|---|---|---|
+| `register.md` | `/register <machine> <repo>` | Set the session's target machine + repo path |
+| `send.md` | `/send <message>` | Send a raw message to the registered target |
+| `draft.md` | `/draft <description>` | Compose a structured prompt, show for approval, then dispatch |
+| `list-messages.md` | `/list-messages` | Show inbox messages from the broker |
+| `get-message.md` | `/get-message [id]` | Retrieve a specific message (or oldest if no id) |
+| `machines.md` | `/machines` | List peers currently connected to the broker |
+| `repos.md` | `/repos <machine> [n]` | Ask a remote machine to list its repos |
+
 ## Editing a command
 
 Just edit the file. Commands are symlinked, so changes are live immediately on the edited machine:

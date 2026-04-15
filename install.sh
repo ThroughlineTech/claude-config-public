@@ -184,8 +184,11 @@ esac
 
 if [ -n "$VSCODE_USER_DIR" ] && [ -d "$VSCODE_USER_DIR" ]; then
   mkdir -p "$VSCODE_USER_DIR/prompts"
-  link "$DOTFILES/copilot-prompts/run-brief.prompt.md"            "$VSCODE_USER_DIR/prompts/run-brief.prompt.md"
-  link "$DOTFILES/copilot-prompts/claude-global.instructions.md"  "$VSCODE_USER_DIR/prompts/claude-global.instructions.md"
+  for f in "$DOTFILES/copilot-prompts/"*.md; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    link "$f" "$VSCODE_USER_DIR/prompts/$name"
+  done
 else
   echo "  - VS Code not detected at $VSCODE_USER_DIR; skipping"
 fi
@@ -225,13 +228,112 @@ fi
 
 chmod +x "$DOTFILES/bin/"* 2>/dev/null || true
 
+#— Intercom subsystem (MQTT era) ——————————————————————————————————————
+#
+# Symlinks dispatcher helpers from bin/ into ~/bin/ and installs the
+# UserPromptSubmit hook. No clone, no bun, no MCP — helpers call
+# mosquitto_pub/sub directly and source ~/.config/intercom/creds at runtime.
+#
+INTERCOM_RAN=0
+
+echo ""
+echo "Intercom:"
+
+# 5a. Mirror bin/* into ~/bin/ and hook into ~/.claude/hooks/
+mkdir -p "$HOME/bin"
+for f in "$DOTFILES/bin/"*; do
+  name=$(basename "$f")
+  link "$f" "$HOME/bin/$name"
+done
+
+mkdir -p "$HOME/.claude/hooks"
+link "$DOTFILES/hooks/surface-intercom-replies.sh" "$HOME/.claude/hooks/surface-intercom-replies.sh"
+
+# 5b. Gate on mosquitto_pub availability
+if ! command -v mosquitto_pub >/dev/null 2>&1; then
+  echo "  ⚠ mosquitto_pub not found — intercom helpers are symlinked but won't work until mosquitto is installed."
+  echo "    Mac:     brew install mosquitto"
+  echo "    Windows: winget install cedalo.mosquitto"
+  echo "    Linux:   sudo apt install mosquitto-clients"
+else
+  echo "  ✓ mosquitto_pub available"
+fi
+
+# 5c. Creds file prompt (skip if non-interactive or file already exists)
+CREDS_FILE="$HOME/.config/intercom/creds"
+if [ ! -f "$CREDS_FILE" ]; then
+  if [ -t 0 ]; then
+    echo "  No $CREDS_FILE found. Enter MQTT broker credentials (Ctrl+C to skip):"
+    read -r -p "    MQTT_HOST: " MQTT_HOST_VAL
+    read -r -p "    MQTT_PORT [1883]: " MQTT_PORT_VAL
+    MQTT_PORT_VAL="${MQTT_PORT_VAL:-1883}"
+    read -r -p "    MQTT_USER: " MQTT_USER_VAL
+    read -r -s -p "    MQTT_PASS: " MQTT_PASS_VAL
+    echo ""
+    if [ -n "$MQTT_HOST_VAL" ]; then
+      mkdir -p "$(dirname "$CREDS_FILE")"
+      {
+        echo "MQTT_HOST=$MQTT_HOST_VAL"
+        echo "MQTT_PORT=$MQTT_PORT_VAL"
+        echo "MQTT_USER=$MQTT_USER_VAL"
+        echo "MQTT_PASS=$MQTT_PASS_VAL"
+      } > "$CREDS_FILE"
+      chmod 600 "$CREDS_FILE"
+      echo "  → wrote $CREDS_FILE (chmod 600)"
+    else
+      echo "  - skipped creds (no host entered); create $CREDS_FILE manually"
+    fi
+  else
+    echo "  - non-interactive: skipping creds prompt; create $CREDS_FILE manually"
+  fi
+else
+  echo "  ✓ $CREDS_FILE already exists"
+fi
+
+# 5d. Windows only: render Task Scheduler XML and register the listener task
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    XML_TEMPLATE="$DOTFILES/windows/intercom-inbox-listener.xml.template"
+    XML_RENDERED="$DOTFILES/windows/intercom-inbox-listener.xml.rendered"
+    if [ -f "$XML_TEMPLATE" ]; then
+      sed "s|{{WINDOWS_USER}}|${USERNAME:-}|g" "$XML_TEMPLATE" > "$XML_RENDERED"
+      echo "  → rendered $XML_RENDERED"
+      if command -v schtasks >/dev/null 2>&1; then
+        # Convert POSIX path to Windows path for schtasks
+        XML_WIN=$(cygpath -w "$XML_RENDERED" 2>/dev/null || echo "$XML_RENDERED")
+        schtasks /Create /XML "$XML_WIN" /TN intercom-inbox-listener /F \
+          && echo "  ✓ Task Scheduler: intercom-inbox-listener registered" \
+          || echo "  ⚠ schtasks failed — register manually: schtasks /Create /XML \"$XML_WIN\" /TN intercom-inbox-listener /F"
+      else
+        echo "  ⚠ schtasks not found — register task manually using $XML_WIN"
+      fi
+    else
+      echo "  ⚠ $XML_TEMPLATE not found; skipping Task Scheduler setup"
+    fi
+    ;;
+esac
+
+# 5f. Surgical .mcp.json cleanup: remove intercom MCP server if present
+#     (left over from TKT-001 HTTP-era install — no-op if file absent or key missing)
+MCP_JSON="$HOME/.claude/.mcp.json"
+if [ -f "$MCP_JSON" ] && command -v jq >/dev/null 2>&1; then
+  if jq -e '.mcpServers.intercom' "$MCP_JSON" >/dev/null 2>&1; then
+    jq 'del(.mcpServers.intercom)' "$MCP_JSON" > "$MCP_JSON.tmp"
+    mv "$MCP_JSON.tmp" "$MCP_JSON"
+    echo "  → removed stale mcpServers.intercom entry from $MCP_JSON"
+  fi
+fi
+
+INTERCOM_RAN=1
+
 #— Smoke tests ————————————————————————————————————————————————————
 echo ""
 echo "Smoke tests:"
 
 ok() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAIL=1; }
-FAIL=0
+warn() { echo "  ⚠ $1"; }
+FAIL="${FAIL:-0}"
 
 [ -L "$HOME/.claude/CLAUDE.md" ] && ok "CLAUDE.md symlinked" || fail "CLAUDE.md not symlinked"
 [ -L "$HOME/.claude/commands" ] && ok "commands/ symlinked" || fail "commands/ not symlinked"
@@ -244,6 +346,14 @@ FAIL=0
 if command -v jq >/dev/null 2>&1; then
   EFFORT=$(jq -r .effortLevel "$HOME/.claude/settings.json" 2>/dev/null || echo "")
   [ "$EFFORT" = "max" ] && ok "settings.json effortLevel=max" || fail "settings.json effortLevel != max (got: '$EFFORT')"
+fi
+
+if [ "$INTERCOM_RAN" = "1" ]; then
+  [ -L "$HOME/bin/send-job" ] && ok "~/bin/send-job symlinked" || fail "~/bin/send-job not symlinked"
+  [ -L "$HOME/.claude/hooks/surface-intercom-replies.sh" ] && ok "hook symlinked" || fail "hook not symlinked at ~/.claude/hooks/"
+  [ -f "$HOME/.config/intercom/creds" ] \
+    && ok "~/.config/intercom/creds present" \
+    || warn "~/.config/intercom/creds missing — intercom helpers will fail until you create it"
 fi
 
 echo ""
