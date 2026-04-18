@@ -86,9 +86,10 @@ echo ""
 #— 4. Repo files all present ——————————————————————————————————————————
 echo "[4] Repo contents"
 REPO_OK=1
-for f in CLAUDE.md install.sh settings.base.json settings.mac.json settings.windows.json \
+for f in CLAUDE.md plan-mode.md brainstorm-mode.md install.sh settings.base.json settings.mac.json settings.windows.json \
          commands/ticket-new.md commands/ticket-delegate.md commands/ticket-collect.md \
          commands/ticket-status.md commands/ticket-install.md \
+         commands/brainstorm.md commands/ticket-promote.md \
          brief-templates/investigate.md brief-templates/implement.md brief-templates/review.md \
          brief-templates/verify-investigate.md brief-templates/verify-implement.md brief-templates/verify-review.md \
          copilot-prompts/run-brief.prompt.md \
@@ -100,14 +101,14 @@ for f in CLAUDE.md install.sh settings.base.json settings.mac.json settings.wind
     REPO_OK=0
   fi
 done
-[ $REPO_OK -eq 1 ] && ok "all 18 expected files present"
+[ $REPO_OK -eq 1 ] && ok "all 22 expected files present"
 echo ""
 
 #— 5. ~/.claude state — what would get backed up ——————————————————————
 echo "[5] What install.sh would back up (~/.claude/)"
 mkdir -p "$HOME/.claude" 2>/dev/null
 WOULD_BACKUP=0
-for target in CLAUDE.md commands plans brief-templates settings.json; do
+for target in CLAUDE.md plan-mode.md brainstorm-mode.md commands plans brief-templates settings.json; do
   path="$HOME/.claude/$target"
   if [ -L "$path" ]; then
     link_target="$(readlink "$path" 2>/dev/null || echo "")"

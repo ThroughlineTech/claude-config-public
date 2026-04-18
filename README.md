@@ -41,6 +41,8 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 
 | Command | When to use it |
 |---|---|
+| `/brainstorm [topic]` | Open-ended exploration session that produces scoped ticket stubs (not plans, not code). Governed by `brainstorm-mode.md`. |
+| `/ticket-promote TKT-001 [...] \| --all` | Move brainstormed stubs from `tickets/stub/` into the active set (`status: stub → open`). Human gate before `/ti`. |
 | `/ticket-new "short description"` | Start tracking a new bug, feature, or enhancement |
 | `/ticket-list` | "Where am I? What's in flight?" (active-only; `--all` includes terminals) |
 | `/ticket-investigate TKT-001 [TKT-002 ...]` | Have Claude Code explore the codebase and write a plan; 2+ IDs → investigate all sequentially, then output recommended implementation order |
@@ -98,6 +100,8 @@ Day-to-day usage lives in the runtime repo: **[claude-intercom/docs/dogfooding-g
 claude-config/
   README.md                          ← this file
   CLAUDE.md                          ← global instructions (Prowl, conventions) — single source of truth
+  plan-mode.md                       ← plan-mode discipline (scope, subtraction, ship gates) — read when entering plan mode
+  brainstorm-mode.md                 ← brainstorm discipline (capture > convergence, ticket stubs) — read when entering a brainstorm
   install.sh                         ← idempotent installer
   preflight.sh                       ← read-only pre-install safety check
   CHANGELOG.md                       ← human-readable log of significant changes
@@ -126,6 +130,10 @@ claude-config/
   copilot-prompts/
     run-brief.prompt.md              ← Copilot prompt: execute any delegation brief
     claude-global.instructions.md    ← generated from CLAUDE.md, symlinked into VS Code
+    plan-mode.instructions.md        ← generated from plan-mode.md, symlinked into VS Code
+    brainstorm-mode.instructions.md  ← generated from brainstorm-mode.md, symlinked into VS Code
+    brainstorm.prompt.md             ← Copilot version of /brainstorm
+    ticket-promote.prompt.md         ← Copilot version of /ticket-promote
 
   plans/                             ← synced plan inbox (write on one machine, execute on another)
 

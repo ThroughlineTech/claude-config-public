@@ -14,7 +14,7 @@ The only thing that happens in the background is that your local `~/.claude/sett
 
 ```bash
 cd ~/src/claude-config && git pull
-# If the pull touched CLAUDE.md or settings.*.json, re-install:
+# If the pull touched CLAUDE.md, plan-mode.md, brainstorm-mode.md, or settings.*.json, re-install:
 bash install.sh
 ```
 
@@ -70,6 +70,8 @@ rm -rf ~/.claude/commands.backup.*
 rm -rf ~/.claude/plans.backup.*
 rm -rf ~/.claude/brief-templates.backup.*
 rm ~/.claude/CLAUDE.md.backup.*
+rm ~/.claude/plan-mode.md.backup.*
+rm ~/.claude/brainstorm-mode.md.backup.*
 
 # Keep settings.json.backup.* LONGER — it's the only place accumulated grants live
 # until you promote them. Delete after a month, or after you've mined it.
@@ -118,9 +120,9 @@ Follow [06-adding-a-new-machine.md](06-adding-a-new-machine.md). 5 minutes. Noth
 
 ## Per-change events (whenever you edit something)
 
-### When you edit `CLAUDE.md`
+### When you edit `CLAUDE.md`, `plan-mode.md`, or `brainstorm-mode.md`
 
-On the machine where you edited: re-run `install.sh` to regenerate the Copilot instructions file. Commit. Push. On other machines: pull, re-run `install.sh`.
+On the machine where you edited: re-run `install.sh` to regenerate the matching Copilot instructions file. Commit. Push. On other machines: pull, re-run `install.sh`.
 
 ### When you edit a settings file
 
@@ -211,6 +213,6 @@ This is a 1-hour meditation, not a major refactor. The point is to keep the syst
 
 ## The minimum viable maintenance
 
-If you only do ONE thing regularly: **re-run `bash install.sh` on each machine after any git pull that touched `CLAUDE.md` or settings files.** That's the only maintenance task that is load-bearing. Everything else on this page is polish.
+If you only do ONE thing regularly: **re-run `bash install.sh` on each machine after any git pull that touched `CLAUDE.md`, `plan-mode.md`, `brainstorm-mode.md`, or settings files.** That's the only maintenance task that is load-bearing. Everything else on this page is polish.
 
 If you forget everything on this page for six months, the system will still work. It just won't be optimally tidy, and your accumulated grants will be bloated. Pick it up when you next think to.

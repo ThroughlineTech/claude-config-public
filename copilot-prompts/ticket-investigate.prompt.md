@@ -26,10 +26,23 @@ Recognized flags:
 
 **Locate ticket files (single-ticket path):** check `{tickets-dir}/{ID}.md` first. If not found there, check terminal subfolders (`shipped/`, `deferred/`, `wontfix/`). If the ticket is in a terminal subfolder, STOP and tell the user to run `/ticket-reopen {ID}` first. If not found anywhere, error.
 
+## Plan Mode Discipline
+
+Before writing the plan, read `~/.claude/plan-mode.md` (and any project-local variant such as `docs/metaplanning/plan-mode.md`). The plan you produce must follow those rules:
+- Fits on one screen (~60 lines) per ticket
+- Includes a machine-readable `Relevant files` section
+- Includes `investigated_at_sha: <SHA>` (the main-branch SHA you investigated against)
+- Subtract-before-present pass: before finalizing, ask "what can be cut or deferred?"
+- Split delight from fix: if the plan bundles a bug fix with a wow/delight feature, recommend splitting into separate tickets
+- Flag file-size ceiling violations (e.g. Throughline's 300-line rule)
+- Every plan names a human ship gate (not just automated tests)
+
+When multiple tickets are planned in one session, the one-screen rule applies per ticket, not to the aggregate.
+
 ## Pre-flight Checks
 
 - `.claude/ticket-config.md` must exist. If not, tell the user to run `/ticket-install` and stop.
-- Ticket status MUST be `open`. If not, report the current status and stop.
+- Ticket status MUST be `stub` or `open` (pre-investigation states). If already `proposed` or later, report the current status and stop — the ticket has already been investigated.
 - Read the ticket's Description and Acceptance Criteria carefully.
 
 ## Single-Ticket Investigation
@@ -40,6 +53,12 @@ Recognized flags:
    - Read `CLAUDE.md` (if it exists) for project rules.
    - Read `.claude/ticket-config.md` for stack info, key source locations, and context docs.
    - Read each "Context docs" path listed in the config.
+   - **If the ticket's frontmatter has an `epic:` field**, read the parent epic for framing:
+     - Locate the epic file in the **same directory as the ticket**, named `EPIC-<slug>.md`. The directory may be the active `{tickets-dir}/`, a stub/proposed subdir, or wherever the ticket happens to live.
+     - Read **only** its `## North star` section. Treat it as read-only framing context — it tells you the parent objective so you can scope this one ticket correctly within it.
+     - Do NOT read sibling tickets in the epic. Do NOT read a brainstorm transcript even if one exists next to the epic file. Do NOT expand `/ti`'s scope to cover the whole epic. This firewall is deliberate — it prevents the "one ticket balloons into the whole epic's worth of work" failure mode.
+     - If the `epic:` field is present but the epic file is missing, emit a warning and proceed — treat the ticket as standalone.
+   - If there's no `epic:` field, behave as usual (no epic context).
 
 2. **Deep-dive the relevant code:**
    - Use "Key source locations" from the config as starting points.
@@ -58,11 +77,17 @@ Recognized flags:
    - What user-facing flows touch this code?
    - What could break if this change is done wrong?
 
+6. **Record the `investigated_at_sha`:**
+   - Run `git rev-parse HEAD` if you're on `main`, or `git rev-parse origin/main` if you're on a branch.
+   - Capture the resulting SHA — it goes in the plan footer.
+   - Load-bearing for downstream drift detection and conflict scheduling.
+
 ### Proposal Phase
 
 Write into the ticket file:
 
 **Investigation section:**
+- **If an epic was read:** lead with `Epic context: EPIC-<slug> — {one-line paraphrase of the north star}` so the user can verify the framing loaded correctly.
 - What you found, with specific file paths and line numbers
 - Root cause (for bugs) or architectural fit (for features)
 - Regression risk assessment
@@ -73,10 +98,41 @@ Write into the ticket file:
 - Any tradeoffs
 
 **Implementation Plan section:**
-- Numbered checklist of specific implementation steps
-- Each step must reference specific files to create/modify
-- Include steps for: interface changes, implementation, unit tests, integration tests
-- Include a step for regression testing existing tests
+
+Use the plan format from `plan-mode.md` (the `## Plan: {title}` heading from that doc is dropped here because the ticket section already names the plan):
+
+```
+{One paragraph: what, why, approach.}
+
+**Relevant files**
+- path/to/file.ts — what changes
+
+**Steps**
+1. …
+
+**Verification**
+- Specific checks, including at least one manual step if UI work.
+
+**Out of scope**
+- Explicit deferrals.
+
+---
+investigated_at_sha: <SHA>
+```
+
+`Relevant files` and `investigated_at_sha` are load-bearing (used by downstream drift detection and conflict scheduling) — not optional. Keep the whole plan block under ~60 lines.
+
+### Subtract Before Presenting
+
+Before moving to Finish, review your own draft plan and answer inline in the ticket:
+
+- **What can be cut?** Items that aren't needed to meet the ticket's Acceptance Criteria.
+- **What can be deferred to a follow-up ticket?** Adjacent improvements, not core requirements.
+- **Does the plan fit on one screen (~60 lines)?** If not, cut or split.
+- **Does any `Relevant file` already exceed the project's size ceiling** (e.g. Throughline's 300-line rule)? If your plan grows it further, propose a factor-first step.
+- **Is this bundling a delight feature with a bug fix?** If yes, recommend splitting into separate tickets.
+
+Document the answer (or a one-liner "nothing to cut — plan is minimal") inline in the ticket before updating status to `proposed`.
 
 ### Finish (single-ticket)
 
@@ -87,9 +143,10 @@ Write into the ticket file:
    {ID} Investigation Complete
 
    Root Cause / Approach: {1-2 sentence summary}
-   Files Affected: {list}
+   Plan: one screen (~{N} lines); Relevant files listed; investigated_at_sha: {SHA}
    Regression Risk: low | medium | high
    Implementation Steps: {count}
+   Human ship gate: {named verification step}
 
    Review the proposal in {ticket path}
    Next: run /ticket-approve {ID} to approve and begin implementation
@@ -110,7 +167,7 @@ For every ID given:
 
 Investigate each ticket one at a time in the input/ID order. For each ticket, run the full single-ticket investigation (Pre-flight Checks + Investigation Phase + Proposal Phase + Finish as defined above).
 
-Obey the same "MUST be open" status check per ticket. If a ticket is already `proposed`, print a notice ("TKT-XXX is already proposed — skipping re-investigation, reading existing plan") and read its existing Investigation + Implementation Plan instead.
+Obey the same status check per ticket: must be `stub` or `open`. If a ticket is already `proposed`, print a notice ("TKT-XXX is already proposed — skipping re-investigation, reading existing plan") and read its existing Investigation + Implementation Plan instead.
 
 After each ticket completes, print a one-line progress summary before starting the next:
 ```

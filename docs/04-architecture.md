@@ -17,6 +17,8 @@ How the pieces fit together. Read this when you want to modify something non-tri
 ┌─────────────────────────────────────────────────────────────┐
 │  LAYER 2: Machine-local (~/.claude/ + VS Code user dir)     │
 │  - ~/.claude/CLAUDE.md              → symlink to Layer 1    │
+│  - ~/.claude/plan-mode.md           → symlink to Layer 1    │
+│  - ~/.claude/brainstorm-mode.md     → symlink to Layer 1    │
 │  - ~/.claude/commands/              → symlink to Layer 1    │
 │  - ~/.claude/plans/                 → symlink to Layer 1    │
 │  - ~/.claude/brief-templates/       → symlink to Layer 1    │
@@ -32,6 +34,8 @@ How the pieces fit together. Read this when you want to modify something non-tri
 ┌─────────────────────────────────────────────────────────────┐
 │  LAYER 1: Source of truth (~/src/claude-config/, a git repo)│
 │  - CLAUDE.md                        ← edit this             │
+│  - plan-mode.md                     ← edit this             │
+│  - brainstorm-mode.md               ← edit this             │
 │  - commands/*.md                    ← edit these            │
 │  - brief-templates/*.md             ← edit these            │
 │  - plans/*.md                       ← written by plan mode  │
@@ -44,6 +48,8 @@ How the pieces fit together. Read this when you want to modify something non-tri
 │    run-brief.prompt.md              ← edit this             │
 │    sync-claude-command.prompt.md    ← edit this             │
 │    claude-global.instructions.md    ← GENERATED from CLAUDE.md │
+│    plan-mode.instructions.md        ← GENERATED from plan-mode.md │
+│    brainstorm-mode.instructions.md  ← GENERATED from brainstorm-mode.md │
 │  - install.sh, preflight.sh         ← edit these            │
 │  - bin/claude-handoff               ← edit this             │
 │  - docs/*.md                        ← edit these            │
@@ -60,6 +66,8 @@ Two different mechanisms for getting Layer 1 content into Layer 2:
 
 ```
 ~/.claude/CLAUDE.md  →  ~/src/claude-config/CLAUDE.md
+~/.claude/plan-mode.md  →  ~/src/claude-config/plan-mode.md
+~/.claude/brainstorm-mode.md  →  ~/src/claude-config/brainstorm-mode.md
 ~/.claude/commands   →  ~/src/claude-config/commands
 ~/.claude/plans      →  ~/src/claude-config/plans
 ~/.claude/brief-templates →  ~/src/claude-config/brief-templates
@@ -70,15 +78,19 @@ Two different mechanisms for getting Layer 1 content into Layer 2:
 
 Symlinks are **live**: edit the file in Layer 1 and the change is immediately visible through the Layer 2 path. No re-install needed.
 
-### Regenerated files (for two things)
+### Regenerated files (for four things)
 
-Two files are not symlinked — they're regenerated on every `install.sh` run:
+Four files are not symlinked — they're regenerated on every `install.sh` run:
 
 1. **`~/.claude/settings.json`** — built by merging `settings.base.json` with the platform-specific file via `jq`. Can't be symlinked because it's a platform-specific merge result.
 
 2. **`copilot-prompts/claude-global.instructions.md`** (in the repo) — built by prepending `---\napplyTo: "**"\n---\n\n` frontmatter to the content of `CLAUDE.md`. Can't be symlinked because it needs the frontmatter header that `CLAUDE.md` doesn't have. (The file is then symlinked into VS Code's user prompts directory, so the symlink chain is Layer 2 → Layer 1-generated → Layer 1-source.)
 
-**Edit `CLAUDE.md` and you need to re-run `install.sh`** to regenerate the Copilot instructions file. Same for any `settings.*.json` edit. Edit anything else and it's live.
+3. **`copilot-prompts/plan-mode.instructions.md`** (in the repo) — built the same way from `plan-mode.md`. Same symlink chain into VS Code's user prompts directory.
+
+4. **`copilot-prompts/brainstorm-mode.instructions.md`** (in the repo) — built the same way from `brainstorm-mode.md`.
+
+**Edit `CLAUDE.md`, `plan-mode.md`, or `brainstorm-mode.md` and you need to re-run `install.sh`** to regenerate the matching Copilot instructions file. Same for any `settings.*.json` edit. Edit anything else and it's live.
 
 ## The settings merge
 
@@ -117,7 +129,7 @@ Accumulated grants from daily work get wiped on every re-install. That's intenti
 2. Resolve DOTFILES = absolute path of the repo
 3. Set TS = current timestamp
 4. mkdir -p ~/.claude/
-5. For each of CLAUDE.md, commands/, plans/, brief-templates/:
+5. For each of CLAUDE.md, plan-mode.md, brainstorm-mode.md, commands/, plans/, brief-templates/:
    - If the target already exists and is not the symlink we want,
      move it to {target}.backup.{TS}
    - Create the symlink
@@ -125,7 +137,9 @@ Accumulated grants from daily work get wiped on every re-install. That's intenti
 7. If jq present:
    - Backup existing ~/.claude/settings.json if any
    - Run the merge expression, write result
-8. Generate copilot-prompts/claude-global.instructions.md from CLAUDE.md
+8. Generate copilot-prompts/claude-global.instructions.md from CLAUDE.md,
+   copilot-prompts/plan-mode.instructions.md from plan-mode.md, and
+   copilot-prompts/brainstorm-mode.instructions.md from brainstorm-mode.md
 9. Detect VS Code user dir based on platform
    - If found, loop over all copilot-prompts/*.md and symlink each into it
 10. Pick shell rc (prefer .bashrc when both exist, else .zshrc)
@@ -161,6 +175,8 @@ Everything in the repo is synced via git. Specifically:
 
 **Synced:**
 - `CLAUDE.md`
+- `plan-mode.md`
+- `brainstorm-mode.md`
 - All slash commands in `commands/`
 - All brief templates in `brief-templates/`
 - All Copilot prompts in `copilot-prompts/` (except the generated instructions file)
@@ -176,12 +192,18 @@ Everything in the repo is synced via git. Specifically:
 - `~/.claude/cache/`, `~/.claude/logs/`, `~/.claude/statsig/` — runtime state
 - VS Code `settings.json` itself — deliberately not touched
 - `copilot-prompts/claude-global.instructions.md` — gitignored; regenerated from `CLAUDE.md` on each install
+- `copilot-prompts/plan-mode.instructions.md` — gitignored; regenerated from `plan-mode.md` on each install
+- `copilot-prompts/brainstorm-mode.instructions.md` — gitignored; regenerated from `brainstorm-mode.md` on each install
 
 ## What each component does, one-liner version
 
 | Component | One-liner |
 |---|---|
 | `CLAUDE.md` | Global instructions loaded by every agent session, every project, every machine |
+| `plan-mode.md` | Plan-mode discipline — scope anchoring, subtraction passes, rescope rules, ship gates; read when entering plan mode |
+| `brainstorm-mode.md` | Brainstorm-mode discipline — capture > convergence, no code/plans, produces scoped ticket stubs; read when entering a brainstorm session |
+| `commands/brainstorm.md` | Slash command that enters brainstorm mode and (on stop signal) writes epic + ticket stubs to `{tickets-dir}/stub/` |
+| `commands/ticket-promote.md` | Slash command that moves stubs from `{tickets-dir}/stub/` to the active set and flips `status: stub → open` |
 | `commands/ticket-*.md` | Slash command definitions for Claude Code's universal ticket workflow |
 | `brief-templates/*.md` | Templates `/ticket-delegate` fills in to create self-contained phase briefs |
 | `copilot-prompts/ticket-*.prompt.md` | Copilot-adapted versions of the Claude Code ticket commands (synced via `sync-claude-command`) |
@@ -189,6 +211,8 @@ Everything in the repo is synced via git. Specifically:
 | `copilot-prompts/run-brief.prompt.md` | Copilot prompt that teaches any model how to execute a brief |
 | `copilot-prompts/sync-claude-command.prompt.md` | Migration agent — syncs a `commands/*.md` file to its Copilot counterpart |
 | `copilot-prompts/claude-global.instructions.md` | Generated copy of `CLAUDE.md` with `applyTo` frontmatter for Copilot |
+| `copilot-prompts/plan-mode.instructions.md` | Generated copy of `plan-mode.md` with `applyTo` frontmatter for Copilot |
+| `copilot-prompts/brainstorm-mode.instructions.md` | Generated copy of `brainstorm-mode.md` with `applyTo` frontmatter for Copilot |
 | `plans/` | Cross-machine plan inbox — synced via git |
 | `bin/claude-handoff` | Ships the most recent plan to the other machine |
 | `settings.base.json` | Universal Claude Code settings (allows, denies, env, effortLevel) |
@@ -202,6 +226,8 @@ Everything in the repo is synced via git. Specifically:
 After `git pull && bash install.sh` on both machines, the following are **identical byte-for-byte**:
 
 - `CLAUDE.md` content
+- `plan-mode.md` content
+- `brainstorm-mode.md` content
 - Every file in `commands/`
 - Every file in `brief-templates/`
 - Every file in `copilot-prompts/` (including the regenerated one, since the source is identical)
@@ -281,7 +307,7 @@ See [intercom-runbook.md](intercom-runbook.md) for the ops reference and [the pr
 
 **Editing `~/.claude/settings.json`.** Don't. Your edit will be wiped the next time `install.sh` runs. If you want to add a permission, add it to `settings.base.json` (universal) or `settings.{mac,windows}.json` (platform-specific), commit, push, re-install.
 
-**Editing `copilot-prompts/claude-global.instructions.md` directly.** Don't. It's regenerated from `CLAUDE.md` on every install. Edit `CLAUDE.md` instead.
+**Editing `copilot-prompts/claude-global.instructions.md`, `copilot-prompts/plan-mode.instructions.md`, or `copilot-prompts/brainstorm-mode.instructions.md` directly.** Don't. They're regenerated from their source files on every install. Edit the sources (`CLAUDE.md`, `plan-mode.md`, `brainstorm-mode.md`) instead.
 
 **Deleting `~/.claude/plans/_next.md`.** Fine — it's just a pointer file created by `claude-handoff`. It gets recreated the next time you run handoff.
 

@@ -2,6 +2,64 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.13] — 2026-04-17
+
+### Changed
+
+- **`/ticket-promote` — prefix matching + auto-epic promotion.** Two enhancements driven by a dogfood test where the user has `TKT-102a` through `TKT-102f` plus `EPIC-voice-ux` all in `{tickets-dir}/stub/` and wants to promote the whole batch with a single call:
+  - **Bare-number prefix match.** `/ticket-promote 102` now resolves to `TKT-102.md` plus any letter-suffix variants (`TKT-102a.md`, `TKT-102b.md`, `TKT-102f.md`, ...) — but not other numeric variants like `TKT-1020.md`. Fully-qualified IDs (e.g., `TKT-102a`) still match exactly.
+  - **Referenced epics are auto-promoted.** For every ticket being moved, `/ticket-promote` reads its `epic:` frontmatter field and pulls the referenced `EPIC-<slug>.md` file from `stub/` to the active set alongside (flipping status to `open`). Each epic is moved once per call even if referenced by multiple tickets. `--all` now includes every `EPIC-*.md` in `stub/` (reversing the 0.2.11 exemption). This fixes an inconsistency from 0.2.11: `/ticket-investigate` looks for the epic file in the same directory as the ticket, but the previous rule left epics behind in `stub/` after their tickets were promoted — breaking the lookup.
+  - **Failure mode softened.** Files that can't be promoted (wrong status, already in active, etc.) are now **skipped with a notice** rather than erroring the whole call. The command only errors outright if the overall call resolves to zero files.
+- **`brainstorm-mode.md`** (and regenerated Copilot mirror) — the "Epics are file-naming-only for now" section is renamed to "Epics are lightly integrated — by design" and rewritten to describe the actual integration: `/ti` reads the north star, `/ticket-promote` moves epics with their tickets, nothing else integrates. The deliberate limitation (no `/tl` listing, no auto-ship tracking) is preserved; the Plane migration rationale is unchanged.
+
+## [0.2.12] — 2026-04-17
+
+### Changed
+
+- **`/ticket-investigate` — epic awareness and `status: stub` acceptance.** Second pass on the command. Extends the plan-mode discipline from 0.2.10 with:
+  - **Epic framing.** When a ticket's frontmatter has an `epic:` field, `/ti` now reads **only** the parent epic's `## North star` section as read-only framing context. Firewalled: does NOT read sibling tickets, does NOT read a brainstorm transcript, does NOT expand `/ti`'s scope beyond the single ticket. If the epic file is missing, emit a warning and proceed as standalone. When an epic was read, the Investigation section leads with `Epic context: EPIC-<slug> — {one-line paraphrase}` so the user can verify the framing loaded.
+  - **Same-directory epic lookup.** The epic file is located in the same directory as the ticket, whatever that directory is called — works for `{tickets-dir}/`, `stub/`, a legacy `proposed/`, or any other naming.
+  - **`status: stub` is now a valid pre-flight state** (alongside `open`). The investigation itself promotes status to `proposed` at the end; no separate manual status flip needed before `/ti`. If a ticket is already `proposed` or later, `/ti` still stops (single-ticket) or re-reads the existing plan (multi-ticket) — unchanged from before.
+  - **File-location logic unchanged.** `/ti` still searches `{tickets-dir}/{ID}.md` plus terminal subfolders; it does NOT reach into `stub/`. `/ticket-promote` remains the path from stub-dir to active-dir.
+- **`copilot-prompts/ti.prompt.md`** — unchanged (thin delegate to the canonical prompt).
+
+## [0.2.11] — 2026-04-17
+
+### Added
+
+- **`brainstorm-mode.md`** — new global discipline doc governing brainstorm sessions. Companion to `plan-mode.md`, parallel install pattern (repo-root file + `~/.claude/` symlink + generated Copilot mirror). Codifies capture-over-convergence, no-code-no-plans, running candidate-ticket list, split-proposals, external-feedback triage, and explicit user-signaled stop. Prevents the "one giant ticket instead of N small ones" failure mode.
+- **`/brainstorm` slash command** (`commands/brainstorm.md` + `copilot-prompts/brainstorm.prompt.md`) — entry point for brainstorm mode. Optional topic arg, optional `--prowl`. On user stop-signal, scans all ticket dirs (active + `stub/` + terminal subdirs) for the next N sequential IDs, then writes an `EPIC-<slug>.md` + N `TKT-NNN.md` stubs to `{tickets-dir}/stub/`. Does NOT produce plans or code; does NOT auto-promote.
+- **`/ticket-promote` slash command** (`commands/ticket-promote.md` + `copilot-prompts/ticket-promote.prompt.md`) — the human gate between brainstorm output and `/ti` input. Takes TKT-IDs (or `--all`) and, for each stub with `status: stub`, moves the file from `{tickets-dir}/stub/` to the active `{tickets-dir}/` and flips `status: stub → open`. EPIC files intentionally stay in `stub/` — they're documentation, not workflow objects.
+- **New ticket status: `stub`**, and new subdirectory convention: `{tickets-dir}/stub/` (parallel to `shipped/`, `deferred/`, `wontfix/`). Existing commands (`/tl`, `/ts`, etc.) ignore the subdir automatically — no behavioral changes needed elsewhere.
+- **`CLAUDE.md` Brainstorm Mode section** pointing to `brainstorm-mode.md`, paralleling the Plan Mode section.
+- **`install.sh` and `preflight.sh` wiring** — `brainstorm-mode.md` is symlinked to `~/.claude/`, the Copilot mirror is auto-generated, and the VS Code user-prompts symlink loop picks up the new `.prompt.md` files. Preflight expects 22 repo files (was 19).
+
+### Scope notes
+
+- **Epics are file-naming-only for now.** `EPIC-<slug>.md` files document the north star + member tickets, but no existing command knows about epics (intentional; Plane migration coming, Plane has native epic support). Documented in `brainstorm-mode.md`.
+- **Transcript capture is not implemented.** Agents can't reliably self-capture conversations, and a half-captured transcript that users trust is worse than none. Dropped from the original spec.
+- **No short alias for `/ticket-promote`.** `/tp` is taken by `/ticket-preview`; deferred until usage patterns surface a clear winner.
+
+## [0.2.10] — 2026-04-17
+
+### Changed
+
+- **`/ticket-investigate` now follows plan-mode discipline.** `commands/ticket-investigate.md` and `copilot-prompts/ticket-investigate.prompt.md` updated with: a new `## Plan Mode Discipline` section pointing to `~/.claude/plan-mode.md`; an Investigation Phase step that captures `investigated_at_sha` via `git rev-parse`; the plan format from `plan-mode.md` (paragraph + Relevant files + Steps + Verification + Out of scope + SHA footer) replacing the old bullet-list format; a new `Subtract Before Presenting` section (cut / defer / one-screen / file-ceiling / delight-vs-fix checks); and an updated Finish summary that names the plan size, Relevant files, SHA, and human ship gate. The multi-ticket ordering analysis (`--order-only`, `--in-given-order`, `--auto`) is unchanged.
+- **`copilot-prompts/ti.prompt.md`** — unchanged (thin delegate to the canonical prompt).
+
+## [0.2.9] — 2026-04-17
+
+### Added
+
+- **`plan-mode.md`** — new global doc capturing plan-mode discipline for any agent (Claude Code, Copilot, Gemini, GPT). Covers scope anchoring, plan-size budgets, subtraction passes, external-feedback triage, ExitPlanMode-rejection interpretation, rescope visibility, side-task isolation, file-growth flagging, human ship gates, and the canonical plan-file format. Distilled from a post-mortem on a voice-UX ticket that drifted from "port the POC" into a two-flag state-machine refactor.
+- **`CLAUDE.md` pointer section** — a new `## Plan Mode` section directs agents to read `plan-mode.md` before presenting or editing a plan. Non-optional.
+- **`install.sh` symlinks `plan-mode.md` → `~/.claude/plan-mode.md`** and generates `copilot-prompts/plan-mode.instructions.md` from it (same applyTo-frontmatter pattern used for `claude-global.instructions.md`). Verification check at the bottom of install.sh confirms the symlink.
+- **`copilot-prompts/plan-mode.instructions.md`** — generated Copilot mirror with `applyTo: "**"`, picked up by the existing VS Code user-prompts symlink loop on install.
+
+### Changed
+
+- **Existing installs**: re-run `bash install.sh` to pick up the new symlink, the Copilot mirror, and the VS Code wiring. No manual steps required.
+
 ## [0.2.8] — 2026-04-15
 
 ### Added

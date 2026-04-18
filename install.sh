@@ -36,10 +36,12 @@ echo ""
 echo "Symlinks:"
 
 #— Claude Code symlinks ———————————————————————————————————————————
-link "$DOTFILES/CLAUDE.md"        "$HOME/.claude/CLAUDE.md"
-link "$DOTFILES/commands"         "$HOME/.claude/commands"
-link "$DOTFILES/plans"            "$HOME/.claude/plans"
-link "$DOTFILES/brief-templates"  "$HOME/.claude/brief-templates"
+link "$DOTFILES/CLAUDE.md"          "$HOME/.claude/CLAUDE.md"
+link "$DOTFILES/plan-mode.md"       "$HOME/.claude/plan-mode.md"
+link "$DOTFILES/brainstorm-mode.md" "$HOME/.claude/brainstorm-mode.md"
+link "$DOTFILES/commands"           "$HOME/.claude/commands"
+link "$DOTFILES/plans"              "$HOME/.claude/plans"
+link "$DOTFILES/brief-templates"    "$HOME/.claude/brief-templates"
 
 #— Generate alias wrapper files from commands/aliases.map ———————————
 # Real .md files (not symlinks) so the Claude Code harness doesn't dedupe
@@ -171,6 +173,26 @@ echo "Generating Copilot instructions file from CLAUDE.md:"
 } > "$DOTFILES/copilot-prompts/claude-global.instructions.md"
 echo "  → wrote copilot-prompts/claude-global.instructions.md"
 
+#— Generate Copilot plan-mode instructions file from plan-mode.md ————
+{
+  echo "---"
+  echo 'applyTo: "**"'
+  echo "---"
+  echo ""
+  cat "$DOTFILES/plan-mode.md"
+} > "$DOTFILES/copilot-prompts/plan-mode.instructions.md"
+echo "  → wrote copilot-prompts/plan-mode.instructions.md"
+
+#— Generate Copilot brainstorm-mode instructions from brainstorm-mode.md —
+{
+  echo "---"
+  echo 'applyTo: "**"'
+  echo "---"
+  echo ""
+  cat "$DOTFILES/brainstorm-mode.md"
+} > "$DOTFILES/copilot-prompts/brainstorm-mode.instructions.md"
+echo "  → wrote copilot-prompts/brainstorm-mode.instructions.md"
+
 #— VS Code Copilot prompts + instructions ————————————————————————————
 echo ""
 echo "VS Code Copilot wiring:"
@@ -301,7 +323,9 @@ case "$(uname -s)" in
       if command -v schtasks >/dev/null 2>&1; then
         # Convert POSIX path to Windows path for schtasks
         XML_WIN=$(cygpath -w "$XML_RENDERED" 2>/dev/null || echo "$XML_RENDERED")
-        schtasks /Create /XML "$XML_WIN" /TN intercom-inbox-listener /F \
+        # MSYS_NO_PATHCONV=1 stops Git Bash from mangling the /Create /XML /TN /F
+        # flags into "C:/Program Files/Git/Create" etc.
+        MSYS_NO_PATHCONV=1 schtasks /Create /XML "$XML_WIN" /TN intercom-inbox-listener /F \
           && echo "  ✓ Task Scheduler: intercom-inbox-listener registered" \
           || echo "  ⚠ schtasks failed — register manually: schtasks /Create /XML \"$XML_WIN\" /TN intercom-inbox-listener /F"
       else
@@ -336,6 +360,8 @@ warn() { echo "  ⚠ $1"; }
 FAIL="${FAIL:-0}"
 
 [ -L "$HOME/.claude/CLAUDE.md" ] && ok "CLAUDE.md symlinked" || fail "CLAUDE.md not symlinked"
+[ -L "$HOME/.claude/plan-mode.md" ] && ok "plan-mode.md symlinked" || fail "plan-mode.md not symlinked"
+[ -L "$HOME/.claude/brainstorm-mode.md" ] && ok "brainstorm-mode.md symlinked" || fail "brainstorm-mode.md not symlinked"
 [ -L "$HOME/.claude/commands" ] && ok "commands/ symlinked" || fail "commands/ not symlinked"
 [ -L "$HOME/.claude/plans" ] && ok "plans/ symlinked" || fail "plans/ not symlinked"
 [ -L "$HOME/.claude/brief-templates" ] && ok "brief-templates/ symlinked" || fail "brief-templates/ not symlinked"

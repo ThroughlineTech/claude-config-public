@@ -36,7 +36,8 @@ Think of it in three layers:
 ┌─────────────────────────────────────────────────────────────┐
 │  LAYER 1: ~/src/claude-config/ (this repo, git)             │
 │  Source of truth. Edit here, commit, push, pull elsewhere.  │
-│  CLAUDE.md, commands/, brief-templates/, plans/, settings   │
+│  CLAUDE.md, plan-mode.md, brainstorm-mode.md, commands/,    │
+│  brief-templates/, plans/, settings                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 

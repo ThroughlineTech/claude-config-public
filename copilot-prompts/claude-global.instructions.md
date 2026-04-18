@@ -1,3 +1,7 @@
+---
+applyTo: "**"
+---
+
 # Global Agent Configuration
 
 This file is loaded by every Claude Code session and (if configured) by Copilot Chat. It contains conventions every agent — Claude Code, Copilot/Gemini, GPT, etc. — should follow regardless of project or machine.
