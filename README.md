@@ -64,6 +64,19 @@ Daily work happens mostly through the ticket workflow. In any project that has b
 
 See **[docs/02-ticket-workflow.md](docs/02-ticket-workflow.md)** for the full lifecycle and examples, or **[docs/05-commands-reference.md](docs/05-commands-reference.md)** for a terse one-section-per-command reference.
 
+## A bigger gun: multi-plan operations
+
+For work too large for a single ticket — a multi-plan refactor, a phased rewrite, a coordinated cross-cutting cleanup — there's an **operation** workflow. Two slash commands, three agents:
+
+| Command | When to use it |
+|---|---|
+| `/op-scaffold <plan.md>` | Take a master plan markdown file, validate it, expand into a runnable `docs/operations/<slug>/` tree with per-plan folders, numbered briefs, and a state JSON. Doesn't run anything. |
+| `/op-run <op-folder>` | Run a scaffolded operation autonomously in the current session. Dispatches `operation-worker` (Sonnet) subagents per brief in parallel batches, verifies + commits each, dispositions any residuals workers flag, and at finalization writes both `HANDOFF.md` and a `VERIFY.md` checklist for human-eyeball verification of UI surfaces. Prowls when complete or blocked. Session must stay open. |
+
+The plan format spec is inlined in `op-scaffold.md`. To generate a plan from a brain dump, copy `~/.claude/operation-templates/META_PROMPT_FOR_PLAN_OPUS.md` into a fresh Opus session along with your dump — it produces a plan in the format `/op-scaffold` accepts.
+
+**Important:** the `operation-conductor` and `operation-task-lead` agents are **reference bodies, not invoked**. The Claude Code harness strips the `Agent` tool from spawned subagents, so the original three-tier dispatch chain doesn't work. The `/op-run` main session inlines those procedures itself, and only the leaf `operation-worker` is dispatched as a real subagent.
+
 ## The interesting trick: cross-model delegation
 
 You can hand any ticket phase (investigate, implement, review) or a peer review of any phase to a different model — Gemini, GPT, Claude, whatever — via a self-contained markdown brief. The brief format is the contract; any model that can read markdown and execute code can take it from there.

@@ -2,6 +2,50 @@
 
 All notable changes to `claude-config`. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed — Operation workflow hardening (verification, residuals, manual handoff)
+
+A bundle of changes addressing failure modes surfaced during recent operation runs. The unifying principle: brief-level verification is the gate, the operation-level command set is the authoritative gate, and loose ends ("residuals") are first-class state instead of footnotes. Touches `commands/op-scaffold.md`, `commands/op-run.md`, all three `agents/operation-*.md` files, and `operation-templates/META_PROMPT_FOR_PLAN_OPUS.md`.
+
+- **Operation-level command set is the gate at every level.** `## What done looks like` in the master plan must now contain an executable `bash` block, not prose only. The scaffolder PREPENDS that block verbatim to every brief's Verification block at expansion time. Workers run the full prepended block before reporting; task-leads re-run the same block at independent verification; plan-level and operation-level reruns use the same set. This addresses the `tsc --noEmit` vs `npm run build` divergence — the master plan author picks the build (LCD) once, and the choice propagates. (`commands/op-scaffold.md`, `commands/op-run.md`, `agents/operation-worker.md`, `agents/operation-task-lead.md`)
+- **Operation-level rerun runs at HEAD.** Clarified in `commands/op-run.md` and `agents/operation-conductor.md`: the operation-level "What done looks like" rerun executes at the operation's tip commit, NOT against any per-plan verified state. A plan that passed at HEAD~5 may break at HEAD because of later plans' commits — the rerun is mandatory regardless of whether the last plan's verification was green.
+- **Residuals are first-class.** The worker report format gains a required `Residuals:` section (file:line + one-sentence each, or the literal word `none`). The task-lead must assign every residual one of three dispositions before approving a brief: `fold-in` (rework, counts toward 3-cap), `follow-up` (open a tracker ticket via `/ticket-new`, default when in doubt), or `accept-with-justification` (recorded in HANDOFF.md "Known limitations"). State schema gains a `residuals` array per brief. (`agents/operation-worker.md`, `agents/operation-task-lead.md`, `commands/op-run.md`)
+- **Operation cannot complete with undisposed residuals.** New "Residual-completion gate" in finalization (`commands/op-run.md`, `agents/operation-conductor.md`). If any residual lacks a disposition, the operation is `blocked: residuals-undisposed` with priority=1 prowl. Disposed residuals (including accept-with-justification) do NOT block — they flow into HANDOFF.md instead. The strong form ("zero residuals exist") was rejected because it incentivizes suppression; the weaker form ("zero undisposed") gets the right end-state without that perverse incentive. The resume detector handles this blocker case specially: no state reset, just a printout of undisposed residuals.
+- **`VERIFY.md` — manual-eyeball handoff at end of operation.** New artifact, written by the conductor at finalization (`agents/operation-conductor.md`, `commands/op-run.md`). Lists every UI-touching brief with what landed (user-facing terms), where to look (dev-server steps + URL), what to confirm (acceptance restated for human eyes), and any manual smoke step + ticket reference from the UI escape-hatch path. If no brief touched UI, contains the explicit empty-state line `No human verification required for this operation.` The human walks VERIFY.md offline before merging; failed eyeball checks become new tickets, not a re-open of the operation. (Avoids designing a pause/resume mechanism while still preventing "tests passed, build passed, canvas was unstyled" failures from shipping silently.)
+- **New scaffold-time validations** (`commands/op-scaffold.md`):
+  - **Hard reject**: `## What done looks like` has no executable `bash` block.
+  - **Hard reject**: any verification command contains placeholder markers (`<...>`, `# replace`, `# TODO`, `<your-`, `<path-to-`).
+  - **Hard reject**: a UI-touching brief lacks both an automated UI verification AND a tracker ticket reference for the manual smoke escape hatch. UI is detected heuristically from `.tsx`/`.jsx`/`.vue`/`.svelte`/`.css`/canvas/render/etc. mentions in Goal/Outputs/Files-touched. Hard rejects do NOT offer a "scaffold anyway" path — the scaffolder must not surface the gap as a "judgment call" or ask the user to choose between strict and lenient. The UI verification must live in **acceptance criteria specifically** (not the Verification block, not Notes, not implied by other criteria); generic items like "tests pass" or "frontend tests are updated" don't count — the test file/path or assertion must be named.
+  - **Soft warning**: a file appears in two or more briefs' "Files touched" — confirm cross-brief invariants live on the LAST brief to touch the file (or on op-level "What done looks like").
+  - **Soft warning**: a deletion brief (title/goal contains remove/delete/rip out/clean up/retire/drop/eliminate) has only grep-style acceptance — flag for "behavior test required" per the new authoring rule.
+  - All hard rejects surface together, not fail-fast — fix in one pass.
+- **New brief-authoring rules in op-scaffold spec + META_PROMPT** (project-author guidance the scaffolder partially enforces):
+  - **Drive the real path, not a stand-in.** Tests for "X works" must invoke X with its real signature against the real implementation surface, not a stub the brief itself controls.
+  - **Behavior tests for code-deletion work.** Removing a code path requires at least one behavior test that drives a representative input and asserts the deleted behavior does not manifest. Symbol-grep alone is insufficient.
+  - **Automated UI verification mandatory.** UI work needs an automated verification of the rendered surface (integration test, snapshot, screenshot diff, headless DOM assertion) OR a tracker ticket + manual smoke fallback. "I didn't feel like writing a test" is not a justification.
+  - **Cross-brief invariant ownership.** When two briefs touch the same file, file-level invariants belong on the LAST brief to touch it, not the first.
+- **Generated artifact list updated.** New per-brief Verification block now contains the auto-prepended op-level command set (with separator comment) followed by brief-specific commands. New `VERIFY.md` placeholder added to the scaffolded folder. `operation-state.json` initial content now includes the `briefs.<NN>.residuals` array shape per plan.
+- **Pre-flight baseline check** in `/op-run` now reads the op-level command set from `00-master.md` instead of using a hardcoded `npm run typecheck && npm test`. Catches a broken baseline against the same gate every brief will be measured against.
+
+### Added — Operation workflow (multi-plan autonomous build runs)
+
+- **`/op-scaffold` and `/op-run` slash commands** ([commands/op-scaffold.md](commands/op-scaffold.md), [commands/op-run.md](commands/op-run.md)). `/op-scaffold` parses a master plan markdown file, validates it against the inlined plan-format spec, and expands it into a `docs/operations/<slug>/` tree (per-plan folders + numbered briefs + state JSON + handoff placeholder). `/op-run` preflights, runs the operation inline in the main session as conductor + task-lead, dispatches `operation-worker` (Sonnet) subagents per brief in parallel batches, verifies + commits each brief, and Prowls on completion or block.
+- **`agents/` directory** — first user-level Claude agents in claude-config. Three operation-* agents land here:
+  - `operation-worker.md` (Sonnet) — the actual dispatched subagent that executes one brief.
+  - `operation-task-lead.md` (Opus) — **reference body, not invoked** (the harness strips `Agent` from spawned subagents). `/op-run.md` cites this file via heading anchors for the worker dispatch template + verify/rework/commit procedure.
+  - `operation-conductor.md` (Opus) — **reference body, not invoked**. Cited via heading anchors for the HANDOFF template and Prowl notification block.
+- **`operation-templates/META_PROMPT_FOR_PLAN_OPUS.md`** — copy-paste artifact for an external Opus session that converts a brain-dump into a plan-format master plan. Symlinked to `~/.claude/operation-templates/` for easy `cat`-and-paste from any project.
+- **`install.sh`**: two new `link` calls (`agents/` → `~/.claude/agents/`, `operation-templates/` → `~/.claude/operation-templates/`) plus seven new smoke tests covering the new symlinks and visible files.
+
+### Known fragility — heading-anchor citations
+
+`/op-run.md` cites the operation-task-lead and operation-conductor agent files via heading-slug anchors (e.g. `#worker-dispatch-prompt-template`). Renaming a heading in any `operation-*.md` silently breaks the citation. After editing any operation-* agent file, run:
+```bash
+grep -nE '^##+' agents/operation-*.md
+```
+and confirm every slug cited from `commands/op-run.md` still exists.
+
 ## [0.2.13] — 2026-04-17
 
 ### Changed

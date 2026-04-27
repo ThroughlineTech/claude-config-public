@@ -36,12 +36,14 @@ echo ""
 echo "Symlinks:"
 
 #— Claude Code symlinks ———————————————————————————————————————————
-link "$DOTFILES/CLAUDE.md"          "$HOME/.claude/CLAUDE.md"
-link "$DOTFILES/plan-mode.md"       "$HOME/.claude/plan-mode.md"
-link "$DOTFILES/brainstorm-mode.md" "$HOME/.claude/brainstorm-mode.md"
-link "$DOTFILES/commands"           "$HOME/.claude/commands"
-link "$DOTFILES/plans"              "$HOME/.claude/plans"
-link "$DOTFILES/brief-templates"    "$HOME/.claude/brief-templates"
+link "$DOTFILES/CLAUDE.md"           "$HOME/.claude/CLAUDE.md"
+link "$DOTFILES/plan-mode.md"        "$HOME/.claude/plan-mode.md"
+link "$DOTFILES/brainstorm-mode.md"  "$HOME/.claude/brainstorm-mode.md"
+link "$DOTFILES/commands"            "$HOME/.claude/commands"
+link "$DOTFILES/plans"               "$HOME/.claude/plans"
+link "$DOTFILES/brief-templates"     "$HOME/.claude/brief-templates"
+link "$DOTFILES/agents"              "$HOME/.claude/agents"
+link "$DOTFILES/operation-templates" "$HOME/.claude/operation-templates"
 
 #— Generate alias wrapper files from commands/aliases.map ———————————
 # Real .md files (not symlinks) so the Claude Code harness doesn't dedupe
@@ -365,8 +367,16 @@ FAIL="${FAIL:-0}"
 [ -L "$HOME/.claude/commands" ] && ok "commands/ symlinked" || fail "commands/ not symlinked"
 [ -L "$HOME/.claude/plans" ] && ok "plans/ symlinked" || fail "plans/ not symlinked"
 [ -L "$HOME/.claude/brief-templates" ] && ok "brief-templates/ symlinked" || fail "brief-templates/ not symlinked"
+[ -L "$HOME/.claude/agents" ] && ok "agents/ symlinked" || fail "agents/ not symlinked"
+[ -L "$HOME/.claude/operation-templates" ] && ok "operation-templates/ symlinked" || fail "operation-templates/ not symlinked"
 [ -f "$HOME/.claude/commands/ticket-new.md" ] && ok "ticket-new.md visible via symlink" || fail "ticket-new.md not visible"
 [ -f "$HOME/.claude/commands/ticket-delegate.md" ] && ok "ticket-delegate.md visible via symlink" || fail "ticket-delegate.md not visible"
+[ -f "$HOME/.claude/commands/op-scaffold.md" ] && ok "op-scaffold.md visible via symlink" || fail "op-scaffold.md not visible"
+[ -f "$HOME/.claude/commands/op-run.md" ] && ok "op-run.md visible via symlink" || fail "op-run.md not visible"
+[ -f "$HOME/.claude/agents/operation-conductor.md" ] && ok "operation-conductor.md visible via symlink" || fail "operation-conductor.md not visible"
+[ -f "$HOME/.claude/agents/operation-task-lead.md" ] && ok "operation-task-lead.md visible via symlink" || fail "operation-task-lead.md not visible"
+[ -f "$HOME/.claude/agents/operation-worker.md" ] && ok "operation-worker.md visible via symlink" || fail "operation-worker.md not visible"
+[ -f "$HOME/.claude/operation-templates/META_PROMPT_FOR_PLAN_OPUS.md" ] && ok "META_PROMPT_FOR_PLAN_OPUS.md visible via symlink" || fail "META_PROMPT_FOR_PLAN_OPUS.md not visible"
 [ -f "$HOME/.claude/brief-templates/implement.md" ] && ok "brief-templates/implement.md visible" || fail "brief template not visible"
 
 if command -v jq >/dev/null 2>&1; then
