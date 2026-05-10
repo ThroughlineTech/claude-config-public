@@ -4,13 +4,21 @@ All notable changes to `claude-config`. Format loosely follows [Keep a Changelog
 
 ## [Unreleased]
 
+### Fixed — Copilot ticket commands hard-fail on missing Plane MCP instead of silently degrading
+
+Copilot's ticket commands (`/tn`, `/ti`, `/ta`, `/tch`, `/tsh`, and all others) would silently fall back to creating local markdown TKT-*.md files — or print manual "go click the UI" instructions — when the Plane MCP server wasn't accessible in VS Code. Both failure modes are now replaced with a hard-fail that prints a specific, actionable error message: "Error: Plane MCP tools are not accessible. In VS Code, open the MCP panel (View → MCP Servers), ensure the `plane` server shows as Connected, and retry. Do not fall back to creating markdown tickets." Root cause was no pre-flight tool check in any copilot prompt — the model fell back silently when it couldn't find `mcp__plane__*` tools. Fix: `bin/sync-copilot-prompts` now emits a universal Plane MCP pre-flight blockquote at the top of every ticket/plan command prompt (except bootstrapper `ticket-install` and bucket-1 URL-handoff commands); the Compatibility Notes MCP mapping entry is updated to name the VS Code tool prefix convention (`plane_*`) explicitly instead of the vague "map by operation" guidance. `copilot-prompts/sync-claude-command.prompt.md` gains a new adaptation rule 5 so future syncs preserve the behavior. (CCONF-24)
+
+### Fixed — `/ticket-list` auto-reap stops emitting PowerShell into Bash on Windows
+
+`/ticket-list` (and the other commands that auto-reap inline — `/ticket-status`, `/ticket-batch`, `/ticket-chain`) used to produce a failed Bash step on Windows because `commands/ticket-cleanup.md` step 1 said only "list directories matching `.worktrees/ticket-*/`" without naming a tool. The system prompt advertises `Shell: PowerShell` on Windows but the `Bash` tool always routes to Git Bash, so the agent would emit `Test-Path` / `Get-ChildItem` and get `syntax error near unexpected token \`{\``. The user-visible output was correct (the command then fell back to `Glob`), but the failed step was noise on every run. `commands/ticket-cleanup.md` now names `Glob` explicitly in both Plane and markdown paths and adds a rule line spelling out why; macOS/Linux behavior is unchanged. (CCONF-23)
+
 ### Changed — `/ticket-new` captures pasted images as text
 
-`/ticket-new` (and its `/tn` alias) now distills any image pasted into the prompt into a **Visual context** block in the ticket description. The ticket file stores text only, so the binary image was previously dropped at session end — meaning `/ticket-investigate` and other downstream agents never saw it. The new behavior writes 1–3 factual sentences per image (UI element + state + visible text + any error) into the description so the visual evidence persists in a form downstream agents can read. Reference at [docs/05-commands-reference.md](docs/05-commands-reference.md#ticket-new-title) updated. (`commands/ticket-new.md`)
+`/ticket-new` (and its `/tn` alias) now distills any image pasted into the prompt into a **Visual context** block in the ticket description. Plane's MCP exposes no attachment-upload tool and the markdown ticket file is text-only, so the binary image was previously dropped at session end — meaning `/ticket-investigate` and other downstream agents never saw it. The new behavior writes 1–3 factual sentences per image (UI element + state + visible text + any error) into the description so the visual evidence persists in a form downstream agents can read. Both Plane and markdown paths updated; copilot mirror regenerated; reference at [docs/05-commands-reference.md](docs/05-commands-reference.md#ticket-new-title) updated. (`commands/ticket-new.md`)
 
 ### Changed — Operation workflow hardening (verification, residuals, manual handoff)
 
-A bundle of changes addressing failure modes surfaced during recent operation runs. The unifying principle: brief-level verification is the gate, the operation-level command set is the authoritative gate, and loose ends ("residuals") are first-class state instead of footnotes. Touches `commands/op-scaffold.md`, `commands/op-run.md`, all three `agents/operation-*.md` files, and `operation-templates/META_PROMPT_FOR_PLAN_OPUS.md`.
+A bundle of changes addressing failure modes surfaced during recent operation runs (operation-kanban, sketch-v2, render-client-side). The unifying principle: brief-level verification is the gate, the operation-level command set is the authoritative gate, and loose ends ("residuals") are first-class state instead of footnotes. Touches `commands/op-scaffold.md`, `commands/op-run.md`, all three `agents/operation-*.md` files, and `operation-templates/META_PROMPT_FOR_PLAN_OPUS.md`.
 
 - **Operation-level command set is the gate at every level.** `## What done looks like` in the master plan must now contain an executable `bash` block, not prose only. The scaffolder PREPENDS that block verbatim to every brief's Verification block at expansion time. Workers run the full prepended block before reporting; task-leads re-run the same block at independent verification; plan-level and operation-level reruns use the same set. This addresses the `tsc --noEmit` vs `npm run build` divergence — the master plan author picks the build (LCD) once, and the choice propagates. (`commands/op-scaffold.md`, `commands/op-run.md`, `agents/operation-worker.md`, `agents/operation-task-lead.md`)
 - **Operation-level rerun runs at HEAD.** Clarified in `commands/op-run.md` and `agents/operation-conductor.md`: the operation-level "What done looks like" rerun executes at the operation's tip commit, NOT against any per-plan verified state. A plan that passed at HEAD~5 may break at HEAD because of later plans' commits — the rerun is mandatory regardless of whether the last plan's verification was green.
@@ -49,6 +57,108 @@ A bundle of changes addressing failure modes surfaced during recent operation ru
 grep -nE '^##+' agents/operation-*.md
 ```
 and confirm every slug cited from `commands/op-run.md` still exists.
+
+### Migration — Throughline Pass 2 (content-hash IDs)
+
+The first run after upgrading Throughline to Pass-2-stable IDs may shift typed-state IDs once. Existing Plane labels of the form `plan-id:P1-D2` may not match the new IDs.
+
+**Recommended action:** run "Plane: Rebind Plan IDs After Throughline Regen" once per project after Throughline's Pass 2 ships. The command walks every Plane issue with a `plan-id:` label, matches by content (title) against the new typed state, and rewrites the labels in place. Idempotent.
+
+After this one-time re-bind, IDs are stable across all future re-extractions.
+
+A warning banner in the preview webview will surface when stale labels are detected. Speculative — Throughline has not yet shipped Pass 2; the contract is locked in by mocked vitest cases (`src/api/planeClient.rebind.test.ts`) rather than a real wrangler-dev capture.
+
+### Changed
+- travelagent: bump THROUGHLINE_SCHEMA_VERSION 0.6.1 → 0.7.0 to match deployed
+  Throughline server (commit dc7efec). Fixture filenames + _meta values
+  bumped accordingly. F-01's schema-version reader now passes against prod
+  without firing the minor-warn banner.
+- travelagent: schema-version reader (followup-01) — pinned to 0.6.1; reads
+  payload._meta.schema_version directly. Major-fails on absence (forces
+  Throughline to ship the metadata field). Replaces structural-validation
+  workaround from TAP-A.
+
+### Added
+- travelagent: `travelagent.rebindPlanIds` command + stale-label detection
+  (followup-02) — detects Plane issues whose `plan-id:VALUE` labels no longer
+  match any current typed-state deliverable id, surfaces a yellow informational
+  banner in the preview webview, and ships a one-shot rebinder that walks every
+  plan-id-labeled issue and rewrites the label in place by matching deliverables
+  on title (lowercased + trimmed). Idempotent. Speculative against Throughline's
+  not-yet-shipped Pass 2; locked in by mocked vitest cases.
+
+### Added
+
+- **Operation Pipeline (TravelAgent ↔ Throughline typed-state cutover).** TravelAgent now defaults to fetching typed state directly from Throughline over HTTP and mapping it to Plane tickets via a thin (~25-line) pure function, skipping the legacy markdown-shred → LLM → audit → recovery pipeline whenever a Throughline project is bound. Schema is pinned to `0.6.0`; major-field mismatches abort sync, patch-level deltas warn and continue. The legacy markdown-shred path is gated and deprecation-logged: it runs only when no Throughline binding exists or `travelagent.forceLegacyShred=true` is set, and the output channel emits `[shred] LEGACY MARKDOWN PATH ...` on every legacy invocation so it's visible the new path was bypassed. Deletion of the legacy parser modules (`llmShredder.ts`, `auditor.ts`, `recoveryPass.ts`, `typedStateExtractor.ts`) is deferred to a follow-up plan after a soak window. New command: `travelagent.unlockThroughlineState`. New settings: `travelagent.throughlineApiUrl`, `travelagent.throughlineProjectId`, `travelagent.throughlineSessionToken`, `travelagent.forceLegacyShred`. Coverage: vitest harness with 4 fixtures locking the dumbest-mapping contract. (TAP-A through TAP-G)
+
+- **`bindProject` writes `.claude/plane-config.md`** — `saveProjectIdToWorkspace` now writes to `<workspace>/.claude/plane-config.md` instead of `.plane.json`. Creates the `.claude/` directory if needed. If the file already exists, only the `- Project ID:` line is updated (all other sections — states, labels, views — are preserved). If the file is absent, a minimal template is created. `.plane.json` is retained as a read-only fallback in `getConfig`; nothing new writes to it. (CCONF-8)
+
+- **Post-shred `/ticket-install` offer** — after a successful shred and Plane sync, the extension checks whether `.claude/plane-config.md` and `.claude/ticket-config.md` already exist in the workspace. If not, it shows a notification offering to open a terminal and run `claude /ticket-install` to seed states, labels, and config files. Workspaces already configured get a simpler "already set up" message. Notification is fire-and-forget and only appears on sync success. (CCONF-7)
+
+- **`extension/`** — TravelAgent VS Code extension source tree, moved from `_project-throughline/travelagent/`. Establishes claude-config as the single home for the full workflow system: commands, config, and extension together. Compiles independently (`cd extension && npm install && npm run compile`). The extension provides a Plane sidebar, document-shredding into tickets, and issue management inside VS Code. (CCONF-10)
+- **`install.sh` extension compile step** — optional step that recompiles `extension/` if `node_modules/` is present, skips gracefully if not. (CCONF-10)
+- **`install.sh` writes `~/.claude/plane-config.md`** — when the Plane MCP is configured from `secrets/.env`, `install.sh` now also writes a global credentials file (`~/.claude/plane-config.md`) with API URL, API key, and workspace slug. The TravelAgent extension reads this file on activation. (CCONF-11)
+- **TravelAgent extension reads `~/.claude/plane-config.md`** — `getConfig()` now loads API URL, API key, and workspace slug from the global `~/.claude/plane-config.md` (written by `install.sh`), then falls back to workspace `.claude/plane-config.md` (for project ID), then to VS Code settings. `.plane.json` is no longer required; projects with `.claude/plane-config.md` get the project ID directly from there. (CCONF-11)
+- **TravelAgent first-run bootstrap** — on sidebar activation, the extension checks for `~/.claude/commands/ticket-investigate.md` as the presence signal for claude-config. When absent, the sidebar shows a "Set Up Claude Config" button that opens a terminal in the repo (searches `~/src/claude-config`, `~/claude-config`, `~/code/claude-config`, `~/projects/claude-config`; falls back to an input prompt) and runs `install.sh`. The sidebar auto-refreshes to the issue list once install completes. Makes the extension the front door for the whole workflow when it travels via Settings Sync to a machine that doesn't yet have claude-config. (CCONF-12)
+- **TravelAgent sidebar launches slash commands** — sidebar Investigate / Approve / Chain Selected Tickets actions open a Claude Code terminal named after the ticket identifier and run `claude /ticket-<verb> CCONF-NNN`, appending `--model <id>` when the ticket carries a `complexity` field (`opus`/`sonnet`/`haiku`). Chain runs across multiple selected tickets in a single `Chain: CCONF-N...` terminal. The sidebar is now the bridge between the extension UI and the existing slash command system. (CCONF-13)
+- **TravelAgent Filter and Sort buttons functional** — sidebar icons now open quick-picks instead of "coming soon" messages. Filter shows all project labels as a multi-select; checked labels filter issues to those carrying at least one selected label (union). Sort offers single-select modes: Priority (high → low, default), State (alphabetically), Sequence ID (newest/oldest), Last Updated (most recent first). Both states persist within the VS Code session; sidebar refresh preserves selections. Empty filter shows all issues; empty label list shows a warning but doesn't crash. (CCONF-4)
+- **TravelAgent tree-view context menu for ticket actions** — unified helper `launchTicketAction()` in `extension/src/actions/ticketActions.ts` handles terminal launch and slash-command dispatch for all ticket verbs. Tree-view context menu (right-click a Plane issue) now shows Investigate, Approve, Ship actions at the top (group `0_agents`), above existing Assign / Mark Done actions (group `1_actions`). Each action receives the issue identifier and optional complexity from the tree item. Webview Investigate / Approve / Chain buttons now route through the same helper for consistency. (CCONF-5)
+- **TravelAgent model picker** — ticket actions (Investigate / Approve / Ship / Preview / Review) now launch a QuickPick before opening the terminal, allowing users to override the model (Opus / Sonnet / Haiku) per-action instead of being locked into the ticket's `complexity` field default. The picker shows three model options with the complexity-suggested default pre-highlighted; hitting Escape aborts the action cleanly. Accessible from both webview action buttons and (when implemented) tree-view context menu. Uses Option A design (always-on picker, two Enters to accept defaults). (CCONF-6)
+
+### Changed
+
+- **`travelagent.backfillPhaseLabels` command for retroactive phase tagging.** Existing tickets (from before prompt 2 shipped) can now be backfilled with `phase:<N>` labels via a one-off sidebar command. The command fetches all issues in the bound project, infers phase from each issue's name or description using the same `/^Phase\s+(\d+)/i` regex, ensures the label exists, and PATCHes the issue. Idempotent: re-runs report 0 labeled (already has labels). Progress and per-issue logs stream to the output channel. (CCONF-3)
+- **Shredder applies `phase:<N>` labels during Plane sync.** The document shredder now parses the phase number from each ticket's phase string (e.g., "Phase 1 — Core Models" → `phase:1`) using regex `/^Phase\s+(\d+)/i` and applies a matching label to the created Plane ticket. Labels are auto-created in the target project if they don't exist, and label UUIDs are cached per sync run so each phase is only queried/created once. Tickets with malformed phase strings are created without a label (with a warning logged). (CCONF-2)
+- **TravelAgent sidebar shows bound project name in title.** The sidebar previously showed a static "My Plane Issues" title. It now displays "\<project-name\> issues" when a project is bound, and falls back to "issues" when unbound or on fetch failure. The title updates on every refresh. (CCONF-15)
+- **Shredder consumes the whole docs folder, not just two files.** The extension previously read only `production.md` + `quality.md`, ignoring `design.md`, `specification.md`, and `extraction.md`. It now resolves to a docs folder (file right-click → parent dir; folder right-click → itself or `./docs/` subfolder; workspace root → same), reads any subset of the five canonical files present, and sends all of them to the LLM with labeled roles: specification.md as **primary** ticket source (its `P*-D*` deliverable tables are the real ticket factory), production.md as fallback primary, design.md as architecture context, extraction.md as decisions/constraints context, quality.md as ID reference. The auditor widened to extract canonical IDs from both quality checklist items (`- [x] **ID ...**`) and specification deliverable tables (`| P1-D1 | ... |`). New context menu entry on folders including workspace root. Old `shredDocumentWithLLM(production, quality)` entry point preserved as a back-compat wrapper over the new `shredFolder({...})`.
+
+### Fixed
+
+- **Tree-view agent commands now registered and wired.** `travelagent.investigateIssue`, `travelagent.approveIssue`, and `travelagent.shipIssue` were declared in CCONF-5's CHANGELOG entry but not connected in `extension.ts` or `package.json`. Added command registrations, context-menu entries (group `0_agents`), and handler logic using `pickLaunchOptions` + `launchTicketAction`. Right-click on any issue in the tree view now shows Investigate / Approve / Ship.
+
+- **Terminal slash commands no longer get path-converted on Windows.** On Windows with Git Bash (MSYS2), `claude /ticket-investigate IDENT` was being expanded by the shell to `claude C:/Program Files/Git/ticket-investigate IDENT` before Claude CLI received it. Fixed by setting `MSYS_NO_PATHCONV=1` and `MSYS2_ARG_CONV_EXCL=*` in the terminal environment in `launchTicketAction` and the post-shred `ticket-install` terminal.
+
+- **`install.sh` refuses to run from a git worktree.** Previously, running install.sh from a worktree (e.g. during a ticket branch's setup) captured the worktree path as `$DOTFILES` and pointed every `~/.claude/*` symlink at the worktree. When the worktree was reaped post-`/ticket-ship`, every symlink broke simultaneously — taking out all slash commands, `CLAUDE.md`, `plan-mode.md`, `plans/`, and intercom helpers. The script now detects worktree context via `git rev-parse --git-dir` vs `--git-common-dir`, refuses to run, and prints the main-repo path. (CCONF-14)
+
+## [0.3.0] — 2026-04-18
+
+### Added
+
+- **Plane backend** (per-project, default on fresh install). All `/ticket-*` commands and `/plan-*` commands now detect the backend via a `Pre-flight: detect backend` block: `.claude/plane-config.md` → Plane; `.claude/ticket-config.md` + `tickets/` → Markdown (legacy); neither → run `/ticket-install`. The two backends coexist on one machine; per-project config decides which runs.
+- **`/ticket-install` Plane path.** Picks or creates a Plane project, seeds the 6 standard states (renames `Todo` → `Ready`, creates `In Review`, sequence-pins after create), seeds workspace-standard labels (`plan-ticket`, `stub`, `delegated`, `risk:*`), and creates per-project `app:<profile>` labels. Writes `.claude/plane-config.md` (UUIDs) + `.claude/ticket-config.md` (stack, commands, preview profiles).
+- **New commands `/plan-new`, `/plan-verify`** — plan ticket creation from a brain dump (extract principles + candidate children + linked work items) and post-ship judgment of principles against actual diffs. Plane only.
+- **`bin/sync-copilot-prompts`** — bulk-ports every `commands/ticket-*.md` and `commands/plan-*.md` into `copilot-prompts/*.prompt.md` with the Plane-aware body, emits per-command Copilot policy overrides (`ticket-chain` single-ticket; `ticket-batch` chain note; `ticket-investigate` sequential loop + ordering flags), and re-syncs alias argument-hints. Wired into `install.sh`.
+- **`install.sh` dual-world dispatch smoke test** — fails loudly if any ported command is missing its `Pre-flight: detect backend` block, so dispatch can't silently regress.
+- **`install.sh` post-install note** — explains dual-world dispatch to users.
+- **Plane REST test suite** at `tests/plane/` — bash + curl, exercises every command's Plane-path logic end-to-end against a live Plane instance. 123/126 green (3 known-skipped `ticket-chain` relation tests pending endpoint discovery).
+- **`docs/13-plane-integration.md`** — workspace structure, MCP server config, state/label seeding, comment markers, relations, known Plane CE quirks with workarounds, troubleshooting.
+- **`docs/archive/02-ticket-workflow-markdown.md`** — pre-Plane workflow doc, preserved as historical reference.
+
+### Changed
+
+- **`docs/02-ticket-workflow.md`** rewritten for the Plane backend. Covers CE-native vocabulary (plan tickets / labels / comment markers in lieu of Epics and custom fields), dual-world dispatch, lifecycle diagram, per-project config files, and where the action happens (MCP tool names, description_html, comments, state transitions).
+- **`docs/05-commands-reference.md`** rewritten: every command described in backend-agnostic terms with a state-equivalence table; notes the Plane-specific tool calls (`mcp__plane__*`) and comment markers per command.
+- **`docs/00-overview.md`**: 6th design decision added (Plane backend + dual-world dispatch); links updated.
+- **`docs/03-delegation.md`**: top-of-doc note explaining the Plane-mode variant (brief lives as a work-item comment instead of a file; `delegated` label + `[delegated_to: <agent>]` marker track state).
+- **`docs/09-faq.md`**: `/ticket-install` answer updated to describe both backends.
+- **`docs/10-design-decisions.md`** #9 revised: the "tickets live per-project" principle still holds; trade-off with Plane (give up `git blame → TKT-123.md` traceability to get cross-machine shared state) documented explicitly.
+- **`README.md`**: "Two ticket backends" paragraph added, command table updated to Plane vocabulary (`SMOKE-N` identifiers), docs index updated.
+
+### Plan 2 status
+
+Plan 2 Phases 1–12 complete. Branch `plane` ready to merge to `main`. Plan 3 (per-project migration) is next.
+
+## [0.2.14] — 2026-04-17
+
+### Added
+
+- **`install.sh` Plane MCP wiring.** New section reads `PLANE_BASE_URL`, `PLANE_API_KEY`, `PLANE_WORKSPACE_SLUG` from `secrets/.env` (gitignored) and registers a `plane` stdio MCP server at user scope in two places:
+  - **Claude Code** — merged into `~/.claude.json` under `.mcpServers.plane`; available in every session and every directory.
+  - **Copilot / VS Code** — merged into `$VSCODE_USER_DIR/mcp.json` under `.servers.plane` (platform-aware path: `%APPDATA%\Code\User\` on Windows, `~/Library/Application Support/Code/User/` on mac, `~/.config/Code/User/` on linux).
+
+  Both reads use `jq` so existing keys are preserved (idempotent re-runs, no clobber). Skipped with a warning if `secrets/.env` is missing, any of the three PLANE_ keys are absent, or `uvx` isn't on PATH. On Git Bash the `uvx` posix path is converted to Windows-native via `cygpath -w` so the stored command matches what Windows-native hosts expect.
+
+  Smoke test verifies both registrations landed when the secret was present. **Rotate the token** by editing `secrets/.env` and re-running `install.sh`.
 
 ## [0.2.13] — 2026-04-17
 

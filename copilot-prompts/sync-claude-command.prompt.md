@@ -102,6 +102,12 @@ Use these defaults when transforming commands:
 - Do not mark shell-heavy commands as unsupported by default.
 - In Copilot agent mode, keep git/test/build/deploy steps, but retain strict safety gates.
 
+5. Plane MCP pre-flight
+- Source behavior: the Claude Code command calls `mcp__plane__*` tools directly with no availability check (Claude Code always has these tools loaded from `~/.claude.json`).
+- Copilot adaptation: for any command with a Plane path, add a **"Plane MCP pre-flight"** check as the FIRST step in the Plane path (before reading any config file). The step instructs the model to scan its tool list for at least one tool matching `mcp__plane__*`, `plane_*`, or `mcp_plane_*`. If none found → hard-fail: "Error: Plane MCP tools are not accessible. In VS Code, open the MCP panel (View → MCP Servers), ensure the `plane` server shows as Connected, and retry. Do not fall back to creating markdown tickets." If found → note the active prefix (e.g. `mcp__plane__` vs `plane_`) and use it for every subsequent tool call in this session.
+- Also add this rule: **if `.claude/plane-config.md` exists, the Markdown path is off-limits regardless of MCP status.** Never silently degrade to creating local TKT-*.md files when the project uses Plane. Hard-fail with the pre-flight error message instead.
+- Update the Compatibility Notes MCP mapping entry: "In VS Code Copilot, Plane MCP tools are typically exposed as `plane_<tool_name>` (e.g. `plane_create_work_item`), not `mcp__plane__<tool_name>`. Step 0 above detects which prefix is active and uses it for the session."
+
 ## Command-specific policy overrides
 
 Apply these overrides for known workflow decisions.
