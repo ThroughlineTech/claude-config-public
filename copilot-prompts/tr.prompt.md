@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-review — TKT-XXX
+description: 'alias for /ticket-review — TKT-XXX — generate a human verification checklist'
 argument-hint: 'TKT-XXX'
 ---
 

@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-defer — TKT-XXX {reason...}
+description: 'alias for /ticket-defer — TKT-XXX {reason...} — park a ticket in deferred/ with a reason'
 argument-hint: 'TKT-XXX {reason...}'
 ---
 

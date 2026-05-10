@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-status — [TKT-XXX]
+description: 'alias for /ticket-status — [TKT-XXX] — show ticket lifecycle timeline (no arg = active set)'
 argument-hint: '[TKT-XXX]'
 ---
 

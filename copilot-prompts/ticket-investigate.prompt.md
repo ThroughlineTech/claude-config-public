@@ -12,6 +12,7 @@ argument-hint: 'TKT-XXX [TKT-YYY ...] [--in-given-order]'
 > Scan your available tool list for at least one tool matching `mcp__plane__*`, `plane_*`, or `mcp_plane_*`.
 > - **None found → STOP.** Print: "Error: Plane MCP tools are not accessible. In VS Code, open the MCP panel (View → MCP Servers), ensure the `plane` server shows as Connected, and retry. Do not fall back to creating markdown tickets." Do not continue to the Markdown path.
 > - **Found → note the active prefix** (e.g. `mcp__plane__` or `plane_`) and use it for every tool call in this session.
+> - **If some `plane_*` tools are found but write tools like `create_work_item` are absent**, the tool list was truncated due to context budget overflow — re-run `install.sh` to enable the tool-filter proxy, then restart VS Code.
 >
 > **If `.claude/plane-config.md` exists, the Markdown path is off-limits** regardless of MCP status — never silently degrade to local TKT-*.md files when the project uses Plane.
 

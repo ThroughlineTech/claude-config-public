@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-approve — TKT-XXX
+description: 'alias for /ticket-approve — TKT-XXX — approve and implement an investigated ticket'
 argument-hint: 'TKT-XXX'
 ---
 

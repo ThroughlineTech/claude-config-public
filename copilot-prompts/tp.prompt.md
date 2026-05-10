@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-preview — TKT-XXX
+description: 'alias for /ticket-preview — TKT-XXX — launch a ticket preview without shipping'
 argument-hint: 'TKT-XXX'
 ---
 

@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-cleanup — [TKT-XXX | --all]
+description: 'alias for /ticket-cleanup — [TKT-XXX | --all] — reap stale worktrees and preview processes'
 argument-hint: '[TKT-XXX | --all]'
 ---
 

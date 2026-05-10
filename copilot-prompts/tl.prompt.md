@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-list — [--all]
+description: 'alias for /ticket-list — [--all] — list active tickets (--all includes shipped/deferred/wontfix)'
 argument-hint: '[--all]'
 ---
 

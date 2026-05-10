@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: alias for ticket-close — TKT-XXX {reason...}
+description: 'alias for /ticket-close — TKT-XXX {reason...} — close a ticket as wontfix'
 argument-hint: 'TKT-XXX {reason...}'
 ---
 

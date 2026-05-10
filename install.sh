@@ -12,6 +12,30 @@ esac
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 TS=$(date +%Y%m%d-%H%M%S)
 
+#— Refuse to run from a git worktree ————————————————————————————————
+# Every `link` call below captures $DOTFILES as the symlink target. If
+# $DOTFILES is a worktree path, all symlinks in ~/.claude/ point into the
+# worktree and break the moment the worktree is reaped after /ticket-ship.
+# Detect and redirect the user to the main checkout. (CCONF-14)
+if command -v git >/dev/null 2>&1; then
+  GIT_DIR=$(git -C "$DOTFILES" rev-parse --path-format=absolute --git-dir 2>/dev/null || echo "")
+  GIT_COMMON_DIR=$(git -C "$DOTFILES" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "")
+  if [ -n "$GIT_DIR" ] && [ -n "$GIT_COMMON_DIR" ] && [ "$GIT_DIR" != "$GIT_COMMON_DIR" ]; then
+    MAIN_REPO=$(dirname "$GIT_COMMON_DIR")
+    echo "✗ Refusing to run install.sh from a git worktree."
+    echo ""
+    echo "  Worktree:   $DOTFILES"
+    echo "  Main repo:  $MAIN_REPO"
+    echo ""
+    echo "  Symlinks in ~/.claude/ would point at this worktree and break"
+    echo "  when the worktree is reaped after /ticket-ship. Run install.sh"
+    echo "  from the main checkout instead:"
+    echo ""
+    echo "    bash \"$MAIN_REPO/install.sh\""
+    exit 1
+  fi
+fi
+
 mkdir -p "$HOME/.claude"
 
 #— helper: idempotent symlink with backup —————————————————————————
@@ -195,6 +219,22 @@ echo "  → wrote copilot-prompts/plan-mode.instructions.md"
 } > "$DOTFILES/copilot-prompts/brainstorm-mode.instructions.md"
 echo "  → wrote copilot-prompts/brainstorm-mode.instructions.md"
 
+#— Regenerate Copilot prompt mirrors from commands/*.md ——————————————
+# Each canonical Claude command (commands/ticket-*.md, commands/plan-*.md)
+# has a Copilot mirror in copilot-prompts/. bin/sync-copilot-prompts is
+# the deterministic port: it extracts frontmatter, copies the body, and
+# emits per-command Copilot-specific overrides for ticket-chain,
+# ticket-batch, and ticket-investigate.
+if [ -f "$DOTFILES/bin/sync-copilot-prompts" ]; then
+  echo ""
+  echo "Copilot prompt mirrors:"
+  bash "$DOTFILES/bin/sync-copilot-prompts" | sed 's/^/  /'
+else
+  echo ""
+  echo "Copilot prompt mirrors:"
+  echo "  ⚠ $DOTFILES/bin/sync-copilot-prompts not found; skipping"
+fi
+
 #— VS Code Copilot prompts + instructions ————————————————————————————
 echo ""
 echo "VS Code Copilot wiring:"
@@ -232,6 +272,15 @@ elif [ -f "$HOME/.bashrc" ]; then
   SHELL_RC="$HOME/.bashrc"
 elif [ -f "$HOME/.zshrc" ]; then
   SHELL_RC="$HOME/.zshrc"
+fi
+
+SHELL_SOURCE_HINT="source ~/.zshrc"
+if [ -n "$SHELL_RC" ]; then
+  case "$(basename "$SHELL_RC")" in
+    .bashrc) SHELL_SOURCE_HINT="source ~/.bashrc" ;;
+    .zshrc) SHELL_SOURCE_HINT="source ~/.zshrc" ;;
+    *) SHELL_SOURCE_HINT="source $SHELL_RC" ;;
+  esac
 fi
 
 if [ -n "$SHELL_RC" ]; then
@@ -352,6 +401,119 @@ fi
 
 INTERCOM_RAN=1
 
+#— Plane MCP (Claude user scope + Copilot user scope) ————————————————
+#
+# Reads PLANE_BASE_URL, PLANE_API_KEY, PLANE_WORKSPACE_SLUG from secrets/.env
+# (gitignored) and registers a `plane` stdio MCP server in two places:
+#   - Claude Code user scope  → ~/.claude.json     (every session, every dir)
+#   - Copilot / VS Code       → $VSCODE_USER_DIR/mcp.json
+# Both read the same key. Rotating the token means editing secrets/.env and re-running install.
+#
+echo ""
+echo "Plane MCP:"
+
+PLANE_OK=0
+SECRETS_ENV="$DOTFILES/secrets/.env"
+if [ ! -f "$SECRETS_ENV" ]; then
+  echo "  - $SECRETS_ENV not found; skipping (add PLANE_BASE_URL, PLANE_API_KEY, PLANE_WORKSPACE_SLUG to enable)"
+elif ! command -v jq >/dev/null 2>&1; then
+  echo "  ⚠ jq not installed; skipping Plane MCP setup"
+else
+  get_secret() {
+    grep -m1 "^$1=" "$SECRETS_ENV" 2>/dev/null | sed -e "s/^$1=//" -e "s/^['\"]//" -e "s/['\"]$//"
+  }
+  PLANE_BASE_URL=$(get_secret PLANE_BASE_URL)
+  PLANE_API_KEY=$(get_secret PLANE_API_KEY)
+  PLANE_WORKSPACE_SLUG=$(get_secret PLANE_WORKSPACE_SLUG)
+
+  if [ -z "$PLANE_BASE_URL" ] || [ -z "$PLANE_API_KEY" ] || [ -z "$PLANE_WORKSPACE_SLUG" ]; then
+    echo "  - secrets/.env missing one or more of PLANE_BASE_URL / PLANE_API_KEY / PLANE_WORKSPACE_SLUG; skipping"
+  elif ! UVX_PATH="$(command -v uvx)" || [ -z "$UVX_PATH" ]; then
+    echo "  ⚠ uvx not on PATH; skipping (install uv: https://docs.astral.sh/uv/)"
+  else
+    # Store a host-agnostic executable name in user config so stale cross-OS
+    # config copies don't pin to an absolute path from another platform.
+    UVX_CMD="uvx"
+
+    # 1. Claude Code user scope — merge into ~/.claude.json .mcpServers.plane
+    CLAUDE_JSON="$HOME/.claude.json"
+    if [ -f "$CLAUDE_JSON" ]; then
+      jq --arg cmd "$UVX_CMD" --arg base "$PLANE_BASE_URL" --arg key "$PLANE_API_KEY" --arg slug "$PLANE_WORKSPACE_SLUG" '
+        .mcpServers.plane = {
+          type: "stdio",
+          command: $cmd,
+          args: ["plane-mcp-server", "stdio"],
+          env: {PLANE_BASE_URL: $base, PLANE_API_KEY: $key, PLANE_WORKSPACE_SLUG: $slug}
+        }
+      ' "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+      echo "  → registered plane in ~/.claude.json (user scope)"
+      PLANE_OK=1
+    else
+      echo "  - $CLAUDE_JSON not found; run 'claude' once to create it, then re-run install"
+    fi
+
+    # 2. Copilot / VS Code user scope — merge into $VSCODE_USER_DIR/mcp.json (top key: "servers")
+    #    Use the stdio proxy to filter 109 → 17 tools so Copilot's token budget isn't exceeded.
+    if [ -n "$VSCODE_USER_DIR" ] && [ -d "$VSCODE_USER_DIR" ]; then
+      COPILOT_MCP="$VSCODE_USER_DIR/mcp.json"
+      PROXY_POSIX="$DOTFILES/bin/plane-mcp-proxy.py"
+      # VS Code on Windows needs a Windows-style path; cygpath -m gives C:/... form.
+      case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*) PROXY_PATH="$(cygpath -m "$PROXY_POSIX")" ;;
+        *) PROXY_PATH="$PROXY_POSIX" ;;
+      esac
+      if [ -f "$COPILOT_MCP" ]; then
+        jq --arg proxy "$PROXY_PATH" --arg base "$PLANE_BASE_URL" --arg key "$PLANE_API_KEY" --arg slug "$PLANE_WORKSPACE_SLUG" '
+          .servers.plane = {
+            command: "uv",
+            args: ["run", "--no-project", $proxy],
+            env: {PLANE_BASE_URL: $base, PLANE_API_KEY: $key, PLANE_WORKSPACE_SLUG: $slug}
+          }
+        ' "$COPILOT_MCP" > "$COPILOT_MCP.tmp" && mv "$COPILOT_MCP.tmp" "$COPILOT_MCP"
+        echo "  → updated $COPILOT_MCP (proxy: $PROXY_PATH)"
+      else
+        jq -n --arg proxy "$PROXY_PATH" --arg base "$PLANE_BASE_URL" --arg key "$PLANE_API_KEY" --arg slug "$PLANE_WORKSPACE_SLUG" '
+          {servers: {plane: {
+            command: "uv",
+            args: ["run", "--no-project", $proxy],
+            env: {PLANE_BASE_URL: $base, PLANE_API_KEY: $key, PLANE_WORKSPACE_SLUG: $slug}
+          }}}
+        ' > "$COPILOT_MCP"
+        echo "  → wrote $COPILOT_MCP (proxy: $PROXY_PATH)"
+      fi
+    else
+      echo "  - VS Code user dir not detected; skipped Copilot mcp.json"
+    fi
+
+    # 3. ~/.claude/plane-config.md — credentials for TravelAgent VS Code extension
+    GLOBAL_PLANE_MD="$HOME/.claude/plane-config.md"
+    printf '# Plane Agent Config\n# Generated by install.sh.\n\n- API URL: %s\n- API key: %s\n- Workspace slug: %s\n' \
+      "$PLANE_BASE_URL" "$PLANE_API_KEY" "$PLANE_WORKSPACE_SLUG" > "$GLOBAL_PLANE_MD"
+    echo "  → wrote $GLOBAL_PLANE_MD"
+  fi
+fi
+
+#— Extension compile (optional) ——————————————————————————————————————
+#
+# extension/ holds the TravelAgent VS Code extension source.
+# Run `npm install` manually the first time; thereafter install.sh will
+# recompile automatically whenever node_modules/ is present.
+#
+echo ""
+echo "Extension (TravelAgent):"
+EXT_DIR="$DOTFILES/extension"
+if [ -d "$EXT_DIR/node_modules" ]; then
+  if command -v npm >/dev/null 2>&1; then
+    (cd "$EXT_DIR" && npm run compile 2>&1 | sed 's/^/  /') \
+      && echo "  ✓ extension compiled" \
+      || echo "  ✗ extension compile failed — run: cd extension && npm run compile"
+  else
+    echo "  ⚠ npm not found; skipping extension compile"
+  fi
+else
+  echo "  - extension/node_modules/ not found; run: cd extension && npm install && npm run compile"
+fi
+
 #— Smoke tests ————————————————————————————————————————————————————
 echo ""
 echo "Smoke tests:"
@@ -379,6 +541,25 @@ FAIL="${FAIL:-0}"
 [ -f "$HOME/.claude/operation-templates/META_PROMPT_FOR_PLAN_OPUS.md" ] && ok "META_PROMPT_FOR_PLAN_OPUS.md visible via symlink" || fail "META_PROMPT_FOR_PLAN_OPUS.md not visible"
 [ -f "$HOME/.claude/brief-templates/implement.md" ] && ok "brief-templates/implement.md visible" || fail "brief template not visible"
 
+# Dual-world dispatch (Plan 2 Phase 8): every ported workflow command must
+# contain a "Pre-flight: detect backend" section. Presence of that section
+# is how each command decides between the Plane and Markdown paths at run
+# time. If any command is missing it, dispatch silently defaults and we
+# lose the backend gate — so fail loudly here.
+DISPATCH_OK=1
+for cmd in "$DOTFILES/commands/"ticket-*.md "$DOTFILES/commands/"plan-*.md; do
+  [ -f "$cmd" ] || continue
+  name=$(basename "$cmd")
+  # ticket-install.md is the bootstrapper — it *creates* the backend choice
+  # rather than dispatching on it, so it's exempt.
+  [ "$name" = "ticket-install.md" ] && continue
+  if ! grep -qF "Pre-flight: detect backend" "$cmd"; then
+    fail "$name missing 'Pre-flight: detect backend' section (dual-world dispatch broken)"
+    DISPATCH_OK=0
+  fi
+done
+[ "$DISPATCH_OK" = "1" ] && ok "dual-world dispatch present in all ported commands"
+
 if command -v jq >/dev/null 2>&1; then
   EFFORT=$(jq -r .effortLevel "$HOME/.claude/settings.json" 2>/dev/null || echo "")
   [ "$EFFORT" = "max" ] && ok "settings.json effortLevel=max" || fail "settings.json effortLevel != max (got: '$EFFORT')"
@@ -390,6 +571,67 @@ if [ "$INTERCOM_RAN" = "1" ]; then
   [ -f "$HOME/.config/intercom/creds" ] \
     && ok "~/.config/intercom/creds present" \
     || warn "~/.config/intercom/creds missing — intercom helpers will fail until you create it"
+fi
+
+if [ "$PLANE_OK" = "1" ] && command -v jq >/dev/null 2>&1; then
+  CLAUDE_PLANE_CMD=$(jq -r '.mcpServers.plane.command // empty' "$HOME/.claude.json" 2>/dev/null || echo "")
+  [ -n "$CLAUDE_PLANE_CMD" ] \
+    && ok "plane MCP registered in ~/.claude.json" \
+    || fail "plane MCP not found in ~/.claude.json after install"
+
+  if [ -n "$CLAUDE_PLANE_CMD" ]; then
+    case "$(uname -s)" in
+      Darwin|Linux)
+        if printf '%s' "$CLAUDE_PLANE_CMD" | grep -Eq '^[A-Za-z]:\\'; then
+          fail "~/.claude.json plane command looks Windows-specific on this host: $CLAUDE_PLANE_CMD"
+        else
+          ok "~/.claude.json plane command is host-compatible"
+        fi
+        ;;
+      MINGW*|MSYS*|CYGWIN*)
+        if [[ "$CLAUDE_PLANE_CMD" == /* ]]; then
+          fail "~/.claude.json plane command looks POSIX-specific on Windows host: $CLAUDE_PLANE_CMD"
+        else
+          ok "~/.claude.json plane command is host-compatible"
+        fi
+        ;;
+    esac
+  fi
+
+  [ -f "$DOTFILES/bin/plane-mcp-proxy.py" ] \
+    && ok "plane-mcp-proxy.py present" \
+    || fail "plane-mcp-proxy.py missing (bin/plane-mcp-proxy.py not found)"
+
+  if [ -n "$VSCODE_USER_DIR" ] && [ -f "$VSCODE_USER_DIR/mcp.json" ]; then
+    COPILOT_PLANE_CMD=$(jq -r '.servers.plane.command // empty' "$VSCODE_USER_DIR/mcp.json" 2>/dev/null || echo "")
+    [ -n "$COPILOT_PLANE_CMD" ] \
+      && ok "plane MCP registered in Copilot mcp.json" \
+      || fail "plane MCP not found in Copilot mcp.json after install"
+
+    if [ -n "$COPILOT_PLANE_CMD" ]; then
+      # Verify the Copilot mcp.json uses the proxy (command should be "uv", not "uvx")
+      [ "$COPILOT_PLANE_CMD" = "uv" ] \
+        && ok "Copilot mcp.json uses plane-mcp-proxy (command=uv)" \
+        || fail "Copilot mcp.json not using proxy (command=$COPILOT_PLANE_CMD, expected uv)"
+
+      case "$(uname -s)" in
+        Darwin|Linux)
+          if printf '%s' "$COPILOT_PLANE_CMD" | grep -Eq '^[A-Za-z]:\\'; then
+            fail "Copilot mcp.json plane command looks Windows-specific on this host: $COPILOT_PLANE_CMD"
+          else
+            ok "Copilot mcp.json plane command is host-compatible"
+          fi
+          ;;
+        MINGW*|MSYS*|CYGWIN*)
+          if [[ "$COPILOT_PLANE_CMD" == /* ]]; then
+            fail "Copilot mcp.json plane command looks POSIX-specific on Windows host: $COPILOT_PLANE_CMD"
+          else
+            ok "Copilot mcp.json plane command is host-compatible"
+          fi
+          ;;
+      esac
+    fi
+  fi
 fi
 
 echo ""
@@ -404,7 +646,7 @@ fi
 cat <<EOF
 
 Next steps:
-  1. Restart your shell, or:  source ~/.zshrc
+  1. Restart your shell, or:  $SHELL_SOURCE_HINT
      (so 'claude-handoff' is on PATH)
 
   2. To push this repo to GitHub (run when ready):
@@ -417,5 +659,14 @@ Next steps:
      No settings.json paste needed. Test in a new Copilot Chat with:
        "send me a test prowl"
      If a notification arrives, the wiring is correct.
+
+  4. Per-project backend (dual-world dispatch):
+       /ticket-* commands auto-detect each project's backend at run time.
+         - .claude/plane-config.md present  → Plane backend
+         - .claude/ticket-config.md + tickets/ → Markdown backend
+         - neither                            → run /ticket-install
+       Both backends are installed globally; per-project config decides
+       which one each command actually uses. Until Plan 3 finishes, you
+       can have Plane and Markdown projects side-by-side on one machine.
 
 EOF
